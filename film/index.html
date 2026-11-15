@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080">
+  <title>Film</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="schermo">
+    <!-- In alto: il titolo selezionato, con sfondo, trama e dati -->
+    <section id="vetrina" class="vetrina">
+      <img id="vetrina-sfondo" class="vetrina-sfondo" alt="" hidden>
+      <div class="vetrina-testi">
+        <div id="vetrina-percorso" class="vetrina-percorso"></div>
+        <h1 id="vetrina-titolo" class="vetrina-titolo">Film</h1>
+        <div id="vetrina-dati" class="vetrina-dati"></div>
+        <div id="vetrina-trama" class="vetrina-trama"><p id="trama-testo" class="trama-testo"></p></div>
+        <div id="vetrina-stato" class="vetrina-stato"></div>
+      </div>
+      <div class="strumenti">
+        <input id="cerca" class="focusable cerca" type="text" placeholder="Cerca un titolo" autocomplete="off" spellcheck="false">
+        <button id="btn-ordina" class="focusable btn" type="button"></button>
+        <button id="btn-aggiorna" class="focusable btn tondo" type="button" aria-label="Aggiorna">
+          <svg viewBox="0 0 24 24"><path d="M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.2L13 11h7V4z"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <main id="contenuto" class="contenuto">
+      <section id="sezione-continua" class="sezione" hidden>
+        <h2>Continua a guardare</h2>
+        <div id="riga-continua" class="riga-locandine"></div>
+      </section>
+      <section id="sezione-tutti" class="sezione">
+        <h2 id="titolo-tutti">Tutti</h2>
+        <div id="griglia" class="griglia"></div>
+        <div id="messaggio" class="messaggio">Lettura della libreria…</div>
+      </section>
+      <section id="sezione-episodi" class="sezione" hidden>
+        <h2 id="titolo-episodi">Episodi</h2>
+        <div id="episodi" class="episodi"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="scelta" class="overlay" hidden>
+    <div class="pannello">
+      <h2 id="scelta-titolo"></h2>
+      <div id="scelta-opzioni" class="scelta-opzioni"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/base.js"></script>
+  <script src="js/libreria.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

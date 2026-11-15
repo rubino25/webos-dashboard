@@ -1,0 +1,4 @@
+dist/
+config.json
+diagnostica.txt
+__pycache__/

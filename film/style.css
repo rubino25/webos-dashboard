@@ -1,0 +1,293 @@
+:root {
+  --sfondo: #0b1020;
+  --card: rgba(255, 255, 255, 0.06);
+  --bordo: rgba(255, 255, 255, 0.09);
+  --testo: #eef2ff;
+  --tenue: #9aa6c4;
+  --accento: #7aa2ff;
+  --medio: #ffc46b;
+  --ok: #7be0a6;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--sfondo);
+  color: var(--testo);
+  font-family: "LG Smart UI", "Museo Sans", "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+#schermo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  transform-origin: 0 0;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(1200px 700px at 10% -10%, rgba(122, 162, 255, 0.16), transparent 60%), var(--sfondo);
+}
+
+/* ---------- Vetrina ---------- */
+.vetrina {
+  position: relative;
+  flex: none;
+  height: 420px;
+  padding: 44px 64px 0;
+  overflow: hidden;
+}
+/* Immagine del film intera (16:9, come arriva da TMDB), accanto a titolo e trama, sotto i comandi */
+.vetrina-sfondo {
+  position: absolute;
+  top: 112px;
+  right: 64px;
+  width: 528px;
+  height: 297px;
+  object-fit: cover;
+  /* Sfuma su tutti i lati, di più a sinistra (verso il testo) e in basso (verso le locandine) */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 38%, #000 88%, transparent), linear-gradient(to bottom, transparent, #000 14%, #000 62%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 38%, #000 88%, transparent), linear-gradient(to bottom, transparent, #000 14%, #000 62%, transparent);
+  mask-composite: intersect;
+}
+.vetrina-sfondo[hidden] { display: none; }
+.vetrina-testi { position: relative; width: 1200px; }
+.vetrina-percorso { font-size: 20px; letter-spacing: 2px; text-transform: uppercase; color: var(--accento); min-height: 26px; }
+/* Il titolo passa sotto la barra di ricerca: non deve arrivarci sopra */
+.vetrina-titolo { font-size: 54px; font-weight: 600; line-height: 1.12; margin-top: 4px; max-width: 1010px; max-height: 122px; overflow: hidden; }
+.vetrina-dati { font-size: 24px; color: var(--tenue); margin-top: 10px; min-height: 30px; }
+.vetrina-trama { font-size: 24px; line-height: 1.45; margin-top: 14px; color: #d4dbef; max-height: 140px; overflow: hidden; }
+/* Trama troppo lunga: scorre lentamente (animazione impostata da app.js) e sfuma ai bordi */
+.vetrina-trama.scorre {
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent);
+}
+.trama-testo { will-change: transform; }
+.vetrina-stato { font-size: 22px; color: var(--medio); margin-top: 12px; min-height: 28px; }
+
+.strumenti {
+  position: absolute;
+  top: 40px;
+  right: 64px;
+  display: flex;
+  gap: 14px;
+}
+.cerca {
+  width: 360px;
+  height: 56px;
+  border-radius: 999px;
+  border: 1px solid var(--bordo);
+  background: rgba(11, 16, 32, 0.75);
+  color: var(--testo);
+  font: inherit;
+  font-size: 22px;
+  padding: 0 24px;
+  outline: none;
+}
+.btn {
+  height: 56px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(11, 16, 32, 0.75);
+  color: var(--testo);
+  font: inherit;
+  font-size: 22px;
+  padding: 0 26px;
+  outline: none;
+  cursor: pointer;
+}
+.btn.tondo { width: 56px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.btn svg { width: 28px; height: 28px; fill: var(--accento); }
+
+/* ---------- Contenuto ---------- */
+.contenuto {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  /* Spazio in fondo: anche l'ultima sezione può salire fino in cima, senza righe tagliate sopra */
+  padding: 0 64px 420px;
+}
+.sezione { margin-top: 18px; }
+.sezione[hidden] { display: none; }
+.sezione h2 { font-size: 26px; font-weight: 600; color: var(--tenue); letter-spacing: 1px; margin-bottom: 14px; }
+
+.riga-locandine {
+  display: flex;
+  gap: 26px;
+  overflow: hidden;
+  padding: 12px 14px 16px;
+  margin: 0 -14px;
+}
+.griglia {
+  display: grid;
+  grid-template-columns: repeat(8, 190px);
+  justify-content: space-between;
+  gap: 26px 0;
+  padding: 12px 14px 16px;
+  margin: 0 -14px;
+}
+
+.locandina {
+  flex: none;
+  width: 190px;
+  border: 0;
+  background: none;
+  color: var(--testo);
+  font: inherit;
+  text-align: left;
+  outline: none;
+  cursor: pointer;
+  border-radius: 16px;
+  transition: transform 0.15s ease;
+}
+.locandina-img {
+  position: relative;
+  display: block;
+  width: 190px;
+  height: 285px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.locandina-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.locandina-segnaposto {
+  position: absolute;
+  inset: auto 14px 18px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.locandina-nome {
+  display: block;
+  margin-top: 10px;
+  font-size: 19px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #d4dbef;
+}
+.badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 15px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(11, 16, 32, 0.8);
+}
+.visto {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #0b1020;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avanzamento {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.avanzamento i { display: block; height: 100%; background: var(--medio); }
+
+.messaggio { font-size: 24px; color: var(--tenue); margin-top: 10px; }
+.messaggio:empty { display: none; }
+
+/* ---------- Episodi ---------- */
+.episodi {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 28px;
+  padding: 8px 10px 16px;
+  margin: 0 -10px;
+}
+.stagione { grid-column: 1 / -1; font-size: 20px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accento); margin-top: 12px; }
+.episodio {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  height: 58px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--testo);
+  font: inherit;
+  text-align: left;
+  outline: none;
+  cursor: pointer;
+  overflow: hidden;
+  line-height: 58px;
+}
+.ep-num { flex: none; width: 92px; font-size: 19px; color: var(--accento); }
+.ep-nome { flex: 1; min-width: 0; font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-durata { flex: none; font-size: 18px; color: var(--tenue); }
+.episodio.visto-ep .ep-num { color: var(--ok); font-weight: 700; }
+.episodio.visto-ep .ep-nome { color: var(--tenue); }
+
+/* ---------- Focus ---------- */
+.focusable:focus { box-shadow: 0 0 0 4px #ffffff; }
+.locandina:focus { box-shadow: none; transform: scale(1.06); z-index: 1; }
+.locandina:focus .locandina-img { box-shadow: 0 0 0 4px #ffffff, 0 18px 40px rgba(0, 0, 0, 0.5); }
+.locandina:focus .locandina-nome { color: #fff; }
+.episodio:focus, .btn:focus { background: rgba(255, 255, 255, 0.18); }
+.cerca:focus { border-color: #fff; box-shadow: 0 0 0 3px #fff; }
+
+/* ---------- Menu e toast ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 18, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.overlay[hidden] { display: none; }
+.pannello {
+  width: 820px;
+  background: #151c33;
+  border: 1px solid var(--bordo);
+  border-radius: 32px;
+  padding: 44px 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.pannello h2 { font-size: 36px; font-weight: 600; }
+.scelta-opzioni { display: flex; flex-direction: column; gap: 14px; }
+.scelta-opzioni .btn { height: 64px; border-radius: 18px; background: rgba(255, 255, 255, 0.07); text-align: left; font-size: 26px; }
+.scelta-opzioni .btn:focus { background: rgba(255, 255, 255, 0.2); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translate(-50%, 40px);
+  background: #1d2644;
+  border: 1px solid var(--bordo);
+  border-radius: 20px;
+  padding: 18px 34px;
+  font-size: 26px;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+  z-index: 20;
+}
+.toast.visibile { opacity: 1; transform: translate(-50%, 0); }

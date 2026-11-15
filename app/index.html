@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="schermo">
+    <div id="pagine">
+
+      <!-- Pagina 1: panoramica -->
+      <section class="pagina" data-pagina="0">
+        <header class="testata">
+          <div>
+            <div id="saluto" class="saluto"></div>
+            <div class="riga-data">
+              <span id="data" class="data"></span>
+              <span id="allerta" class="allerta" hidden></span>
+            </div>
+          </div>
+          <div class="testata-dx">
+            <div class="azioni">
+              <button id="btn-impostazioni" class="focusable azione" type="button" data-etichetta="Impostazioni">
+                <svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+              </button>
+              <button id="btn-aggiorna" class="focusable azione" type="button" data-etichetta="Aggiorna">
+                <svg viewBox="0 0 24 24"><path d="M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.2L13 11h7V4z"/></svg>
+              </button>
+              <button id="btn-home-lg" class="focusable azione" type="button" data-etichetta="Home LG">
+                <svg viewBox="0 0 24 24"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg>
+              </button>
+              <button id="btn-schermo" class="focusable azione" type="button" data-etichetta="Spegni schermo">
+                <svg viewBox="0 0 24 24"><path d="M3 4h18v12H3zm2 2v8h14V6zM8 19h8v2H8z"/><path d="M4 3l17 17-1.4 1.4-17-17z"/></svg>
+              </button>
+            </div>
+            <div id="ora" class="ora"></div>
+          </div>
+        </header>
+
+        <main class="griglia">
+          <section class="card">
+            <div class="card-titolo"><span>In onda</span><span id="tv-stato" class="sotto"></span></div>
+            <div id="tv-corrente" class="tv-corrente focusable riquadro" tabindex="0"></div>
+            <div id="tv-preferiti" class="preferiti"></div>
+          </section>
+
+          <section class="card meteo">
+            <div class="card-titolo"><span>Meteo</span><span class="sotto"><span id="meteo-luogo"></span> <span id="meteo-stato" class="stato"></span></span></div>
+            <div id="meteo-corrente" class="meteo-corrente"></div>
+            <div id="meteo-previsioni" class="previsioni"></div>
+          </section>
+
+          <section class="card film-card">
+            <div class="card-titolo"><span>Film</span><span class="sotto"><span id="film-percorso" class="film-percorso"></span><span id="film-server"></span> <span id="film-stato" class="stato"></span></span></div>
+            <ul id="film-lista" class="film-lista lista-scorre"><li class="messaggio">Ricerca del server DLNA…</li></ul>
+          </section>
+        </main>
+
+        <div id="riga-controlli" class="riga-controlli scorrevole"></div>
+
+        <section class="app">
+          <div class="card-titolo">
+            <span>App</span>
+            <span id="suggerimento" class="sotto"></span>
+          </div>
+          <div id="riga-app" class="riga-app scorrevole">
+            <div id="app-stato" class="stato inline"></div>
+          </div>
+        </section>
+      </section>
+
+      <!-- Pagina 2: sistema e casa -->
+      <section class="pagina" data-pagina="1">
+        <header class="testata testata-2">
+          <div>
+            <div class="titolo-pagina">Sistema e casa</div>
+            <div class="sotto-pagina">▲ torna alla panoramica</div>
+          </div>
+          <div id="ora-2" class="ora-piccola"></div>
+        </header>
+
+        <main class="griglia-2">
+          <section class="card sistema compatta">
+            <div class="card-titolo"><span>Sistema</span><span class="sotto"><span id="tv-modello"></span> <span id="sistema-stato" class="stato"></span></span></div>
+            <div class="metriche">
+              <div class="metrica">
+                <div class="metrica-testa"><span>CPU</span><span id="cpu-val">—</span></div>
+                <div class="barra"><i id="cpu-barra"></i></div>
+              </div>
+              <div class="metrica">
+                <div class="metrica-testa"><span>Memoria</span><span id="ram-val">—</span></div>
+                <div class="barra"><i id="ram-barra"></i></div>
+              </div>
+              <div class="metrica">
+                <div class="metrica-testa"><span>Spazio interno</span><span id="disco-val">—</span></div>
+                <div class="barra"><i id="disco-barra"></i></div>
+              </div>
+            </div>
+            <div class="dettagli">
+              <div><span class="etichetta">Acceso da</span><span id="uptime">—</span></div>
+              <div><span class="etichetta">Temperatura</span><span id="temp">—</span></div>
+              <div><span class="etichetta">Carico</span><span id="carico">—</span></div>
+              <div><span class="etichetta">Processi</span><span id="processi">—</span></div>
+              <div><span class="etichetta">Indirizzo IP</span><span id="ip">—</span></div>
+              <div><span class="etichetta">Connessione</span><span id="connessione">—</span></div>
+              <div><span class="etichetta">Download</span><span id="download">—</span></div>
+              <div><span class="etichetta">Upload</span><span id="upload">—</span></div>
+              <div><span class="etichetta">webOS</span><span id="webos">—</span></div>
+              <div><span class="etichetta">Firmware</span><span id="firmware">—</span></div>
+            </div>
+          </section>
+
+          <section class="card casa-card">
+            <div class="card-titolo"><span>Casa</span><span id="casa-stato" class="sotto"></span></div>
+            <div id="casa-entita" class="entita-griglia"></div>
+          </section>
+
+        </main>
+      </section>
+
+    </div>
+  </div>
+
+  <div id="salvaschermo" hidden>
+    <div class="ss-contenuto">
+      <div id="ss-ora" class="ss-ora"></div>
+      <div id="ss-data" class="ss-data"></div>
+      <div id="ss-meteo" class="ss-meteo"></div>
+    </div>
+  </div>
+
+  <div id="impostazioni" class="overlay" hidden>
+    <div class="pannello largo">
+      <div class="pannello-testa">
+        <h2>Impostazioni</h2>
+        <div class="testa-dx">
+          <span id="indirizzo-configura" class="nota"></span>
+          <button id="btn-web" class="focusable btn piccolo" type="button"></button>
+        </div>
+      </div>
+      <div class="colonne">
+        <div class="colonna">
+          <h3>Meteo e orologio</h3>
+          <label for="input-citta">Città per il meteo</label>
+          <div class="riga">
+            <input id="input-citta" class="focusable" type="text" autocomplete="off" spellcheck="false">
+            <button id="btn-cerca" class="focusable btn" type="button">Cerca</button>
+          </div>
+          <div id="esito-citta" class="nota"></div>
+          <button id="btn-secondi" class="focusable btn" type="button"></button>
+          <h3>Accensione a distanza (Wake-on-LAN)</h3>
+          <label for="input-wol-nome">Nome e indirizzo MAC del dispositivo</label>
+          <div class="riga">
+            <input id="input-wol-nome" class="focusable wol-nome" type="text" autocomplete="off" spellcheck="false" maxlength="20" placeholder="PC">
+            <input id="input-wol-mac" class="focusable" type="text" autocomplete="off" spellcheck="false" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF">
+            <button id="btn-wol-prova" class="focusable btn" type="button">Prova</button>
+          </div>
+          <div id="esito-wol" class="nota"></div>
+          <button id="btn-wol-ingresso" class="focusable btn" type="button"></button>
+          <button id="btn-wol-pulsante" class="focusable btn" type="button"></button>
+        </div>
+        <div class="colonna">
+          <h3>App</h3>
+          <button id="btn-preferite" class="focusable btn" type="button"></button>
+          <div class="nota">Nella barra: OK tenuto premuto su un'app per spostarla o toglierla.</div>
+          <h3>Avvio, Home e salvaschermo</h3>
+          <button id="btn-home" class="focusable btn" type="button"></button>
+          <div class="nota">Con la dashboard come Home, premi Home due volte di seguito per la Home LG.</div>
+          <button id="btn-accensione" class="focusable btn" type="button"></button>
+          <button id="btn-salvaschermo" class="focusable btn" type="button"></button>
+          <button id="btn-salvaschermo-lg" class="focusable btn" type="button"></button>
+          <button id="btn-ripristina-lg" class="focusable btn avviso" type="button">Ripristina Home e salvaschermo LG</button>
+        </div>
+      </div>
+      <button id="btn-chiudi" class="focusable btn primario" type="button">Chiudi</button>
+    </div>
+  </div>
+
+  <div id="scegli-preferite" class="overlay" hidden>
+    <div class="pannello largo">
+      <h2 id="griglia-titolo">App preferite</h2>
+      <div id="griglia-nota" class="nota"></div>
+      <div id="preferite-griglia" class="preferite-griglia"></div>
+      <button id="btn-preferite-fine" class="focusable btn primario" type="button">Fatto</button>
+    </div>
+  </div>
+
+  <div id="scelta" class="overlay sopra" hidden>
+    <div class="pannello">
+      <h2 id="scelta-titolo"></h2>
+      <div id="scelta-opzioni" class="scelta-opzioni"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/base.js"></script>
+  <script src="js/meteo.js"></script>
+  <script src="js/sistema.js"></script>
+  <script src="js/barra.js"></script>
+  <script src="js/controlli.js"></script>
+  <script src="js/tv.js"></script>
+  <script src="js/casa.js"></script>
+  <script src="js/film.js"></script>
+  <script src="js/avvio.js"></script>
+</body>
+</html>

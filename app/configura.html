@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard TV</title>
+<style>
+  :root {
+    --sfondo: #0b1020;
+    --card: #131a30;
+    --campo: #1c2440;
+    --bordo: rgba(255, 255, 255, 0.09);
+    --testo: #eef2ff;
+    --tenue: #9aa6c4;
+    --accento: #7aa2ff;
+    --ok: #7be0a6;
+    --allarme: #ff7a7a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(900px 500px at 0% -10%, rgba(122, 162, 255, 0.14), transparent 60%), var(--sfondo);
+    background-attachment: fixed;
+    color: var(--testo);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  .pagina { max-width: 1180px; margin: 0 auto; padding: 28px 16px 80px; }
+
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+  h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.5px; }
+  .sottotitolo { color: var(--tenue); font-size: 15px; }
+  .stato { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--tenue);
+    border: 1px solid var(--bordo); border-radius: 999px; padding: 6px 14px; }
+  .stato::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--tenue); }
+  .stato.ok::before { background: var(--ok); }
+  .stato.errore { color: var(--allarme); }
+  .stato.errore::before { background: var(--allarme); }
+
+  .colonne { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  @media (min-width: 960px) { .colonne { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+  .colonna { display: grid; gap: 18px; min-width: 0; }
+
+  section { background: var(--card); border: 1px solid var(--bordo); border-radius: 18px; padding: 20px; min-width: 0; }
+  h2 { font-size: 13px; font-weight: 650; letter-spacing: 1.6px; text-transform: uppercase; color: var(--tenue); margin-bottom: 14px; }
+  .nota { color: var(--tenue); font-size: 14px; margin-top: 8px; }
+  .nota.errore { color: var(--allarme); }
+  .nota:empty { display: none; }
+  label.campo { display: block; font-size: 14px; color: var(--tenue); margin: 14px 0 6px; }
+  label.campo:first-of-type { margin-top: 0; }
+
+  .riga { display: flex; gap: 10px; }
+  .riga > input { flex: 1 1 0; min-width: 0; }
+  input[type=text], input[type=search], select {
+    width: 100%; background: var(--campo); border: 1px solid var(--bordo); border-radius: 12px;
+    padding: 11px 14px; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accento); }
+  input::placeholder { color: rgba(154, 166, 196, 0.6); }
+  .btn { background: var(--campo); border: 1px solid var(--bordo); border-radius: 12px; padding: 11px 18px; cursor: pointer; white-space: nowrap; }
+  .btn:hover { border-color: var(--accento); }
+  .btn.primario { background: var(--accento); color: #0b1020; border-color: transparent; font-weight: 600; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+
+  .risultati { display: grid; gap: 6px; margin-top: 10px; }
+  .risultati:empty { display: none; }
+  .risultati .btn { text-align: left; white-space: normal; }
+
+  .interruttore { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; cursor: pointer; }
+  .interruttore + .interruttore { border-top: 1px solid var(--bordo); }
+  .interruttore small { display: block; color: var(--tenue); font-size: 13px; }
+  .interruttore input { position: absolute; opacity: 0; pointer-events: none; }
+  .levetta { flex: none; position: relative; width: 46px; height: 26px; border-radius: 999px; background: #39425e; transition: background 0.15s; }
+  .levetta::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+  .interruttore input:checked + .levetta { background: var(--accento); }
+  .interruttore input:checked + .levetta::after { transform: translateX(20px); }
+  .interruttore input:focus-visible + .levetta { box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.5); }
+
+  .icona { flex: none; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; overflow: hidden; background: #2b3a67; }
+  .icona img { width: 100%; height: 100%; object-fit: contain; }
+
+  .preferite { list-style: none; display: grid; gap: 6px; }
+  .preferite li { display: flex; align-items: center; gap: 12px; background: var(--campo); border-radius: 12px; padding: 8px 8px 8px 10px; }
+  .preferite .nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preferite .num { flex: none; width: 22px; text-align: right; color: var(--tenue); font-size: 13px; }
+  .tasti { display: flex; gap: 4px; }
+  .tasto { width: 36px; height: 36px; border-radius: 10px; border: 0; background: transparent; cursor: pointer; color: var(--tenue);
+    display: flex; align-items: center; justify-content: center; }
+  .tasto:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--testo); }
+  .tasto:disabled { opacity: 0.25; cursor: default; }
+  .tasto svg { width: 18px; height: 18px; fill: currentColor; }
+  .vuoto { color: var(--tenue); font-size: 14px; padding: 6px 0; }
+
+  .aggiungi { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--bordo); }
+  .griglia-app { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 10px; }
+  .griglia-app button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 12px;
+    background: transparent; border: 1px solid transparent; cursor: pointer; min-width: 0; }
+  .griglia-app button:hover { background: var(--campo); border-color: var(--bordo); }
+  .griglia-app span:last-child { font-size: 13px; color: var(--tenue); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .wol-nome { flex: 0 0 120px !important; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+    background: #1d2644; border: 1px solid var(--bordo); border-radius: 14px; padding: 12px 20px; transition: opacity 0.2s, transform 0.2s;
+    max-width: calc(100% - 32px); }
+  .toast.visibile { opacity: 1; transform: translate(-50%, 0); }
+  .toast.errore { border-color: var(--allarme); }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <header>
+    <div>
+      <h1>Dashboard TV</h1>
+      <div class="sottotitolo">Impostazioni della dashboard, salvate subito sulla TV</div>
+    </div>
+    <span id="stato" class="stato">Collegamento…</span>
+  </header>
+
+  <div class="colonne">
+    <div class="colonna">
+      <section>
+        <h2>Meteo e orologio</h2>
+        <label class="campo" for="citta">Città per il meteo</label>
+        <form id="form-citta" class="riga">
+          <input id="citta" type="search" autocomplete="off" placeholder="Cerca una città">
+          <button class="btn" type="submit">Cerca</button>
+        </form>
+        <div id="esito-citta" class="nota"></div>
+        <div id="risultati-citta" class="risultati"></div>
+        <label class="interruttore"><span>Mostra i secondi</span><input id="secondi" type="checkbox"><span class="levetta"></span></label>
+      </section>
+
+      <section>
+        <h2>Avvio, Home e salvaschermo</h2>
+        <label class="interruttore"><span>Usa la dashboard come Home<small>Premendo Home due volte di seguito si va alla Home LG</small></span>
+          <input id="home" type="checkbox"><span class="levetta"></span></label>
+        <label class="interruttore"><span>Apri la dashboard all'accensione della TV</span>
+          <input id="accensione" type="checkbox"><span class="levetta"></span></label>
+        <label class="interruttore"><span>Sostituisci il salvaschermo LG</span>
+          <input id="salvaschermoLg" type="checkbox"><span class="levetta"></span></label>
+        <label class="campo" for="salvaschermoMin">Salvaschermo della dashboard</label>
+        <select id="salvaschermoMin">
+          <option value="0">Mai</option>
+          <option value="5">Dopo 5 minuti</option>
+          <option value="10">Dopo 10 minuti</option>
+          <option value="15">Dopo 15 minuti</option>
+          <option value="30">Dopo 30 minuti</option>
+          <option value="60">Dopo 60 minuti</option>
+        </select>
+      </section>
+
+      <section>
+        <h2>Accensione a distanza (Wake-on-LAN)</h2>
+        <label class="campo" for="wolMac">Nome e indirizzo MAC del dispositivo</label>
+        <div class="riga">
+          <input id="wolNome" class="wol-nome" type="text" maxlength="20" autocomplete="off" placeholder="PC">
+          <input id="wolMac" type="text" maxlength="17" autocomplete="off" spellcheck="false" placeholder="AA:BB:CC:DD:EE:FF">
+        </div>
+        <div id="esito-wol" class="nota"></div>
+        <label class="campo" for="wolIngresso">Accendilo quando scegli l'ingresso</label>
+        <select id="wolIngresso"></select>
+        <label class="interruttore"><span>Pulsante "Accendi" tra i comandi della dashboard</span>
+          <input id="wolPulsante" type="checkbox"><span class="levetta"></span></label>
+        <button id="prova-wol" class="btn primario" type="button">Accendi adesso</button>
+        <div class="nota">Il dispositivo deve essere collegato alla rete via cavo e avere il Wake-on-LAN attivo.</div>
+      </section>
+    </div>
+
+    <div class="colonna">
+      <section>
+        <h2>App preferite nella barra</h2>
+        <ol id="preferite" class="preferite"></ol>
+        <div class="aggiungi">
+          <label class="campo" for="filtro">Aggiungi un'app</label>
+          <input id="filtro" type="search" autocomplete="off" placeholder="Filtra per nome">
+          <div id="griglia-app" class="griglia-app"></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Questa pagina</h2>
+        <p class="nota" style="margin: 0 0 14px">La serve la TV. Puoi spegnerla quando non ti serve: la riaccendi dalla TV, in Impostazioni → Pagina web.</p>
+        <button id="spegni-pagina" class="btn" type="button">Spegni la pagina web</button>
+      </section>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+'use strict';
+
+// Valori della dashboard quando un campo non è mai stato impostato (come DEFAULTS in js/base.js)
+const PREDEFINITE = {
+  citta: 'Roma', lat: 41.8919, lon: 12.5113, secondi: false, preferite: null, salvaschermoMin: 10,
+  wolNome: '', wolMac: '', wolIngresso: '', wolIngressoNome: '', wolPulsante: true,
+};
+const ICONE = {
+  su: '<svg viewBox="0 0 24 24"><path d="M12 7l6 6-1.4 1.4-4.6-4.6-4.6 4.6L6 13z"/></svg>',
+  giu: '<svg viewBox="0 0 24 24"><path d="M12 17l-6-6 1.4-1.4 4.6 4.6 4.6-4.6L18 11z"/></svg>',
+  togli: '<svg viewBox="0 0 24 24"><path d="M6.4 5L12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>',
+};
+
+const $ = (s) => document.querySelector(s);
+let stato = { impostazioni: Object.assign({}, PREDEFINITE), opzioni: {}, app: [], ingressi: [] };
+
+// ---------- Comunicazione con la TV ----------
+
+async function api(percorso, corpo) {
+  const r = await fetch(percorso, corpo === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo),
+  });
+  const dati = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(dati.errore || 'HTTP ' + r.status);
+  return dati;
+}
+
+let timerToast;
+function toast(testo, errore) {
+  const t = $('#toast');
+  t.textContent = testo;
+  t.classList.toggle('errore', !!errore);
+  t.classList.add('visibile');
+  clearTimeout(timerToast);
+  timerToast = setTimeout(() => t.classList.remove('visibile'), 2600);
+}
+
+function impostaStato(testo, classe) {
+  $('#stato').textContent = testo;
+  $('#stato').className = 'stato ' + (classe || '');
+}
+
+async function salva(modifiche, messaggio) {
+  try {
+    const r = await api('/api/impostazioni', modifiche);
+    stato.impostazioni = Object.assign({}, PREDEFINITE, r.impostazioni);
+    toast(messaggio || 'Salvato');
+    impostaStato('Collegata alla TV · v' + stato.versione, 'ok');
+    return true;
+  } catch (e) {
+    toast('Non salvato: ' + e.message, true);
+    return false;
+  } finally {
+    disegna();
+  }
+}
+
+async function salvaOpzione(campo, valore) {
+  try {
+    const r = await api('/api/opzioni', { [campo]: valore });
+    stato.opzioni = r.opzioni;
+    toast('Salvato');
+  } catch (e) {
+    toast('Non salvato: ' + e.message, true);
+  }
+  disegna();
+}
+
+async function carica() {
+  try {
+    const r = await api('/api/stato');
+    stato = Object.assign(r, { impostazioni: Object.assign({}, PREDEFINITE, r.impostazioni) });
+    impostaStato('Collegata alla TV · v' + r.versione, 'ok');
+    disegna();
+  } catch (e) {
+    impostaStato('TV non raggiungibile', 'errore');
+  }
+}
+
+// ---------- Disegno ----------
+
+function iconaApp(app) {
+  const el = document.createElement('span');
+  el.className = 'icona';
+  if (app.colore) el.style.background = app.colore;
+  const lettera = () => { el.textContent = (app.titolo || '?').charAt(0).toUpperCase(); };
+  if (app.icona) {
+    const img = document.createElement('img');
+    img.src = '/icona?k=' + encodeURIComponent(app.chiave);
+    img.alt = '';
+    img.loading = 'lazy';
+    img.onerror = () => { img.remove(); lettera(); };
+    el.appendChild(img);
+  } else {
+    lettera();
+  }
+  return el;
+}
+
+function tasto(icona, titolo, attivo, azione) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'tasto';
+  b.title = titolo;
+  b.setAttribute('aria-label', titolo);
+  b.innerHTML = ICONE[icona];
+  b.disabled = !attivo;
+  b.addEventListener('click', azione);
+  return b;
+}
+
+function disegnaPreferite() {
+  const imp = stato.impostazioni;
+  const perChiave = new Map(stato.app.map((a) => [a.chiave, a]));
+  const lista = (imp.preferite || []).filter((k) => perChiave.has(k));
+  const ol = $('#preferite');
+  ol.innerHTML = '';
+  if (!lista.length) ol.innerHTML = '<li class="vuoto">Nessuna app preferita: aggiungile qui sotto.</li>';
+  const sposta = (i, d) => {
+    const nuova = lista.slice();
+    [nuova[i], nuova[i + d]] = [nuova[i + d], nuova[i]];
+    salva({ preferite: nuova }, 'Ordine salvato');
+  };
+  lista.forEach((k, i) => {
+    const app = perChiave.get(k);
+    const li = document.createElement('li');
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = i + 1;
+    const nome = document.createElement('span');
+    nome.className = 'nome';
+    nome.textContent = app.titolo;
+    const tasti = document.createElement('span');
+    tasti.className = 'tasti';
+    tasti.append(
+      tasto('su', 'Sposta prima', i > 0, () => sposta(i, -1)),
+      tasto('giu', 'Sposta dopo', i < lista.length - 1, () => sposta(i, 1)),
+      tasto('togli', 'Togli dalla barra', true, () => salva({ preferite: lista.filter((x) => x !== k) }, app.titolo + ' tolta')),
+    );
+    li.append(num, iconaApp(app), nome, tasti);
+    ol.appendChild(li);
+  });
+
+  const filtro = $('#filtro').value.trim().toLowerCase();
+  const scelte = new Set(lista);
+  const griglia = $('#griglia-app');
+  griglia.innerHTML = '';
+  stato.app
+    .filter((a) => !scelte.has(a.chiave) && (!filtro || a.titolo.toLowerCase().includes(filtro)))
+    .sort((a, b) => a.titolo.localeCompare(b.titolo, 'it'))
+    .forEach((app) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.title = 'Aggiungi ' + app.titolo;
+      const nome = document.createElement('span');
+      nome.textContent = app.titolo;
+      b.append(iconaApp(app), nome);
+      b.addEventListener('click', () => salva({ preferite: lista.concat(app.chiave) }, app.titolo + ' aggiunta'));
+      griglia.appendChild(b);
+    });
+  if (!griglia.children.length) griglia.innerHTML = '<div class="vuoto">Nessuna altra app.</div>';
+}
+
+function disegnaIngressi() {
+  const imp = stato.impostazioni;
+  const sel = $('#wolIngresso');
+  sel.innerHTML = '';
+  const voci = [{ valore: '', nome: 'Nessuno (solo col pulsante)' }].concat(stato.ingressi.map((i) => ({
+    valore: i.valore, nome: i.nome + (i.collegato ? '' : ' (scollegato)'),
+  })));
+  if (imp.wolIngresso && !voci.some((v) => v.valore === imp.wolIngresso)) voci.push({ valore: imp.wolIngresso, nome: imp.wolIngressoNome || imp.wolIngresso });
+  voci.forEach((v) => {
+    const o = document.createElement('option');
+    o.value = v.valore;
+    o.textContent = v.nome;
+    sel.appendChild(o);
+  });
+  sel.value = imp.wolIngresso || '';
+}
+
+function disegna() {
+  const imp = stato.impostazioni;
+  const op = stato.opzioni || {};
+  $('#citta').placeholder = imp.citta ? 'Attuale: ' + imp.citta : 'Cerca una città';
+  $('#secondi').checked = !!imp.secondi;
+  $('#home').checked = !!op.home;
+  $('#accensione').checked = !!op.accensione;
+  $('#salvaschermoLg').checked = !!op.salvaschermoLg;
+  $('#salvaschermoMin').value = String(imp.salvaschermoMin);
+  if (document.activeElement !== $('#wolNome')) $('#wolNome').value = imp.wolNome || '';
+  if (document.activeElement !== $('#wolMac')) $('#wolMac').value = imp.wolMac || '';
+  $('#wolPulsante').checked = !!imp.wolPulsante;
+  $('#prova-wol').textContent = 'Accendi ' + (imp.wolNome || 'adesso');
+  $('#prova-wol').disabled = !imp.wolMac;
+  if (!$('#esito-wol').classList.contains('errore')) {
+    $('#esito-wol').textContent = imp.wolMac ? '' : 'Scrivi il MAC per poterlo accendere dalla TV.';
+  }
+  disegnaIngressi();
+  disegnaPreferite();
+}
+
+// ---------- Azioni ----------
+
+$('#form-citta').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nome = $('#citta').value.trim();
+  const esito = $('#esito-citta');
+  const risultati = $('#risultati-citta');
+  risultati.innerHTML = '';
+  esito.classList.remove('errore');
+  if (!nome) return;
+  esito.textContent = 'Ricerca…';
+  try {
+    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=6&language=it&format=json&name=' + encodeURIComponent(nome));
+    const dati = await r.json();
+    if (!dati.results || !dati.results.length) throw new Error('Città non trovata');
+    esito.textContent = 'Scegli:';
+    dati.results.forEach((c) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn';
+      b.textContent = [c.name, c.admin1, c.country].filter(Boolean).join(', ');
+      b.addEventListener('click', async () => {
+        if (await salva({ citta: c.name, lat: c.latitude, lon: c.longitude }, 'Meteo: ' + c.name)) {
+          risultati.innerHTML = '';
+          esito.textContent = '';
+          $('#citta').value = '';
+        }
+      });
+      risultati.appendChild(b);
+    });
+  } catch (err) {
+    esito.classList.add('errore');
+    esito.textContent = err.message;
+  }
+});
+
+$('#secondi').addEventListener('change', (e) => salva({ secondi: e.target.checked }));
+['home', 'accensione', 'salvaschermoLg'].forEach((c) => $('#' + c).addEventListener('change', (e) => salvaOpzione(c, e.target.checked)));
+$('#salvaschermoMin').addEventListener('change', (e) => salva({ salvaschermoMin: Number(e.target.value) }));
+$('#filtro').addEventListener('input', disegnaPreferite);
+
+function normalizzaMac(testo) {
+  const hex = String(testo || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
+  return hex.length === 12 ? hex.match(/../g).join(':') : '';
+}
+
+async function salvaWol() {
+  const esito = $('#esito-wol');
+  const testoMac = $('#wolMac').value.trim();
+  const mac = normalizzaMac(testoMac);
+  esito.classList.remove('errore');
+  if (testoMac && !mac) {
+    esito.classList.add('errore');
+    esito.textContent = 'MAC non valido: servono 12 cifre esadecimali, es. 00:11:22:33:44:55';
+    return false;
+  }
+  const imp = stato.impostazioni;
+  const nome = $('#wolNome').value.trim();
+  if (nome === imp.wolNome && mac === imp.wolMac) return true;
+  return salva({ wolNome: nome, wolMac: mac });
+}
+$('#wolNome').addEventListener('change', salvaWol);
+$('#wolMac').addEventListener('change', salvaWol);
+$('#wolIngresso').addEventListener('change', (e) => {
+  const voce = stato.ingressi.find((i) => i.valore === e.target.value);
+  salva({ wolIngresso: e.target.value, wolIngressoNome: voce ? voce.nome : '' });
+});
+$('#wolPulsante').addEventListener('change', (e) => salva({ wolPulsante: e.target.checked }));
+$('#prova-wol').addEventListener('click', async () => {
+  if (!(await salvaWol())) return;
+  const nome = stato.impostazioni.wolNome || 'il dispositivo';
+  try {
+    const r = await api('/api/wol', {});
+    $('#esito-wol').classList.remove('errore');
+    $('#esito-wol').textContent = `Pacchetto inviato a ${r.inviato}: se ${nome} è configurato, si sta accendendo.`;
+  } catch (e) {
+    $('#esito-wol').classList.add('errore');
+    $('#esito-wol').textContent = 'Invio non riuscito: ' + e.message;
+  }
+});
+
+$('#spegni-pagina').addEventListener('click', async () => {
+  if (!confirm('Spegnere la pagina web?\nLa riaccendi solo dalla TV: Impostazioni → Pagina web.')) return;
+  try {
+    await api('/api/spegni', {});
+    spenta = true;
+    impostaStato('Pagina spenta', 'errore');
+    $('.colonne').innerHTML = '<section><h2>Pagina spenta</h2><p>Per riaccenderla: sulla TV apri la dashboard, ' +
+      '<b>Impostazioni → Pagina web: Sì</b>, poi ricarica questa pagina.</p></section>';
+  } catch (e) {
+    toast('Non riuscito: ' + e.message, true);
+  }
+});
+
+// Tornando sulla pagina (es. dopo aver cambiato qualcosa col telecomando) si rilegge tutto
+let spenta = false;
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !spenta) carica(); });
+carica();
+</script>
+</body>
+</html>

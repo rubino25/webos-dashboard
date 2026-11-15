@@ -1,0 +1,669 @@
+:root {
+  --sfondo: #0b1020;
+  --card: rgba(255, 255, 255, 0.06);
+  --bordo: rgba(255, 255, 255, 0.09);
+  --testo: #eef2ff;
+  --tenue: #9aa6c4;
+  --accento: #7aa2ff;
+  --accento-2: #b18cff;
+  --allarme: #ff7a7a;
+  --medio: #ffc46b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--sfondo);
+  color: var(--testo);
+  font-family: "LG Smart UI", "Museo Sans", "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* Area fissa 1920x1080, scalata via JS fuori dalla TV (anteprima nel browser) */
+#schermo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  transform-origin: 0 0;
+  background:
+    radial-gradient(1200px 700px at 10% -10%, rgba(122, 162, 255, 0.22), transparent 60%),
+    radial-gradient(1000px 700px at 110% 110%, rgba(177, 140, 255, 0.18), transparent 60%),
+    var(--sfondo);
+}
+
+/* Due pagine impilate: si passa dall'una all'altra spostando #pagine */
+#pagine { transition: transform 0.45s ease; }
+.pagina {
+  width: 1920px;
+  height: 1080px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 36px 64px 30px;
+}
+
+/* ---------- Testata ---------- */
+.testata {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.saluto { font-size: 48px; font-weight: 600; letter-spacing: -1px; }
+.riga-data { display: flex; align-items: center; gap: 20px; margin-top: 6px; }
+.data { font-size: 28px; color: var(--tenue); }
+.allerta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 26px;
+  padding: 4px 20px 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 196, 107, 0.16);
+  color: var(--medio);
+}
+.allerta[hidden] { display: none; }
+.allerta svg { width: 38px; height: 38px; }
+.ora {
+  font-size: 108px;
+  font-weight: 300;
+  line-height: 0.9;
+  letter-spacing: -4px;
+  font-variant-numeric: tabular-nums;
+}
+.ora .sep { animation: lampeggio 2s steps(1) infinite; }
+.ora .sec { font-size: 52px; color: var(--tenue); margin-left: 12px; letter-spacing: 0; }
+@keyframes lampeggio { 50% { opacity: 0.35; } }
+
+.testata-dx { display: flex; align-items: center; gap: 40px; }
+.azioni { display: flex; gap: 16px; }
+.azione {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s;
+}
+.azione svg { width: 34px; height: 34px; fill: var(--accento); }
+.azione::after {
+  content: attr(data-etichetta);
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 12px);
+  font-size: 20px;
+  color: var(--testo);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.azione:focus::after { opacity: 1; }
+
+/* ---------- Card ---------- */
+.griglia {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 28px;
+  min-height: 0;
+}
+.card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--bordo);
+  border-radius: 32px;
+  padding: 28px 40px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.card-titolo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 30px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--tenue);
+}
+.card-titolo .sotto {
+  font-size: 24px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.stato { font-size: 20px; color: var(--tenue); }
+.stato:not(:empty)::before { content: "· "; }
+.stato.errore { color: var(--allarme); }
+
+/* ---------- Meteo ---------- */
+.meteo-corrente {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin: 4px 0 14px;
+  flex: 1;
+  min-height: 0;
+}
+.meteo-corrente .icona-grande { width: 128px; height: 128px; flex: none; }
+.meteo-corrente .temp { font-size: 92px; font-weight: 300; line-height: 1; letter-spacing: -3px; }
+.meteo-corrente .descrizione { font-size: 32px; margin-top: 2px; }
+.meteo-corrente .extra { font-size: 23px; color: var(--tenue); margin-top: 6px; line-height: 1.35; }
+
+.previsioni {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+}
+.giorno {
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 22px;
+  padding: 8px 6px 10px;
+}
+.giorno .nome { font-size: 24px; color: var(--tenue); }
+.giorno svg { width: 50px; height: 50px; margin: 0; }
+.giorno .minmax { font-size: 26px; }
+.giorno .minmax .min { color: var(--tenue); margin-left: 8px; }
+.giorno .pioggia { font-size: 20px; color: var(--accento); margin-top: 2px; min-height: 24px; }
+
+svg .sole { fill: #ffd166; }
+svg .luna { fill: #e6e9ff; }
+svg .nuvola { fill: #dfe6f5; }
+svg .nuvola-scura { fill: #9aa6c4; }
+svg .goccia { stroke: var(--accento); stroke-width: 4; stroke-linecap: round; }
+svg .fiocco { fill: #ffffff; }
+svg .fulmine { fill: #ffd166; }
+svg .nebbia { stroke: #c4cbe0; stroke-width: 4; stroke-linecap: round; }
+
+/* ---------- Sistema ---------- */
+.metriche {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0 auto;
+}
+.metrica-testa {
+  display: flex;
+  justify-content: space-between;
+  font-size: 29px;
+  margin-bottom: 8px;
+}
+.metrica-testa span:last-child { font-variant-numeric: tabular-nums; color: var(--tenue); }
+.barra {
+  height: 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.barra i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--accento), var(--accento-2));
+  transition: width 0.8s ease, background 0.4s;
+}
+.barra i.medio { background: linear-gradient(90deg, var(--medio), #ff9f5a); }
+.barra i.alto { background: linear-gradient(90deg, #ff9f5a, var(--allarme)); }
+
+.dettagli {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px 14px;
+  font-size: 24px;
+  margin-top: 14px;
+}
+.dettagli > div { display: flex; flex-direction: column; min-width: 0; }
+.dettagli > div[hidden] { display: none; }
+.dettagli span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.etichetta { font-size: 18px; color: var(--tenue); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+
+/* ---------- App ---------- */
+.app { display: flex; flex-direction: column; gap: 4px; }
+.app > .card-titolo { font-size: 24px; }
+.app > .card-titolo .sotto { font-size: 20px; }
+.riga-app {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+  padding: 12px 12px 14px;
+  margin: 0 -12px;
+  scroll-behavior: smooth;
+}
+.separatore { flex: none; width: 2px; margin: 16px 2px; background: var(--bordo); }
+.stato.inline { position: static; align-self: center; font-size: 26px; }
+
+.tile {
+  flex: none;
+  width: 124px;
+  height: 108px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--testo);
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  outline: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s;
+}
+.tile-icona {
+  width: 50px;
+  height: 50px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 26px;
+  font-weight: 700;
+}
+.tile-icona img { width: 100%; height: 100%; object-fit: contain; }
+.tile-recente { background: rgba(122, 162, 255, 0.12); gap: 4px; }
+.tile-recente .tile-icona { width: 40px; height: 40px; }
+.tile-etichetta {
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accento);
+}
+
+/* Modalità sposta: la tile selezionata scorre tra le altre con le frecce */
+.tile-app { position: relative; }
+.riga-app.modalita-sposta .tile:not(.spostando) { opacity: 0.5; }
+.tile-app.spostando,
+.tile-app.spostando:focus {
+  transform: scale(1.08) translateY(-6px);
+  box-shadow: 0 0 0 4px var(--medio), 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.tile-app.spostando::before,
+.tile-app.spostando::after {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 48px;
+  color: var(--medio);
+}
+.tile-app.spostando::before { content: "\2039"; left: 8px; }
+.tile-app.spostando::after { content: "\203A"; right: 8px; }
+
+.tile-nome {
+  font-size: 17px;
+  max-width: 108px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Focus da telecomando */
+.focusable:focus {
+  transform: scale(1.08);
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 0 4px #ffffff, 0 18px 40px rgba(0, 0, 0, 0.45);
+  z-index: 1;
+}
+
+/* ---------- Impostazioni ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 18, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.overlay[hidden] { display: none; }
+.pannello {
+  width: 900px;
+  background: #151c33;
+  border: 1px solid var(--bordo);
+  border-radius: 32px;
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  font-size: 30px;
+}
+.pannello h2 { font-size: 48px; font-weight: 600; margin-bottom: 8px; }
+.pannello h3 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--tenue);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 8px;
+}
+.pannello.largo { width: 1500px; max-height: 1010px; overflow-y: auto; padding: 40px 56px; gap: 18px; font-size: 27px; }
+.pannello-testa { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
+.testa-dx { display: flex; align-items: center; gap: 20px; }
+.testa-dx .nota { min-height: 0; }
+.btn.piccolo { padding: 12px 24px; font-size: 24px; }
+/* minmax(0, …): sulla TV (Chromium 132) le caselle di testo allargavano la loro colonna e schiacciavano l'altra */
+.colonne { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 56px; }
+.colonna { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.overlay.sopra { z-index: 12; }
+.scelta-opzioni { display: flex; flex-direction: column; gap: 14px; max-height: 760px; overflow-y: auto; overflow-x: hidden; padding: 8px 16px; margin: 0 -8px; }
+.pannello label { color: var(--tenue); font-size: 26px; }
+.pannello .riga { display: flex; gap: 18px; }
+.pannello input {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  font: inherit;
+  color: var(--testo);
+  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  border-radius: 18px;
+  padding: 18px 24px;
+  outline: none;
+}
+.pannello input.wol-nome { flex: 0 0 170px; width: 170px; }
+.pannello input::placeholder { color: rgba(154, 166, 196, 0.55); }
+.nota { font-size: 24px; color: var(--tenue); min-height: 30px; }
+.nota.errore { color: var(--allarme); }
+.btn {
+  font: inherit;
+  color: var(--testo);
+  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  border-radius: 18px;
+  padding: 18px 30px;
+  text-align: left;
+  outline: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn.attiva { box-shadow: inset 0 0 0 3px var(--accento); }
+.btn.avviso { color: var(--medio); }
+.btn.primario { background: var(--accento); color: #0b1020; font-weight: 600; text-align: center; }
+.pannello .focusable:focus { transform: scale(1.03); }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 60px;
+  transform: translate(-50%, 40px);
+  background: #1d2644;
+  border: 1px solid var(--bordo);
+  border-radius: 20px;
+  padding: 20px 36px;
+  font-size: 28px;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+  z-index: 20;
+}
+.toast.visibile { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Pagina 2 ---------- */
+.testata-2 { align-items: center; }
+.titolo-pagina { font-size: 56px; font-weight: 600; letter-spacing: -1px; }
+.sotto-pagina { font-size: 26px; color: var(--tenue); margin-top: 6px; }
+.ora-piccola { font-size: 84px; font-weight: 300; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+
+/* Controlli rapidi (pagina 1): pillole con icona, nome e valore */
+.riga-controlli {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  overflow: hidden;
+  padding: 8px 12px;
+  margin: -6px -12px;
+}
+.tile-controllo {
+  width: auto;
+  height: 64px;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 0 24px 0 10px;
+  border-radius: 999px;
+}
+.tile-controllo .tile-icona { width: 44px; height: 44px; border-radius: 50%; background: rgba(122, 162, 255, 0.16); }
+.tile-controllo svg { width: 26px; height: 26px; fill: var(--accento); }
+.tile-controllo .ctl-testi { display: flex; flex-direction: column; align-items: flex-start; }
+.tile-controllo .tile-nome { font-size: 20px; max-width: none; }
+.tile-valore { font-size: 18px; color: var(--tenue); }
+.tile-valore:empty { display: none; }
+.tile-controllo.pericolo svg { fill: var(--allarme); }
+
+/* Riquadri selezionabili dentro le card (pagina 2) */
+.riquadro { border-radius: 20px; padding: 10px 14px; margin-left: -14px; margin-right: -14px; outline: none; cursor: pointer; }
+.riquadro.focusable:focus { transform: none; box-shadow: 0 0 0 4px #ffffff; }
+
+.griglia-2 {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 34px;
+  min-height: 0;
+}
+.messaggio { font-size: 24px; color: var(--tenue); margin-top: 22px; line-height: 1.45; }
+
+/* In onda */
+.tv-corrente { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; }
+.tv-canale { font-size: 44px; font-weight: 600; }
+.tv-canale .numero { color: var(--accento); margin-right: 14px; }
+.tv-programma { font-size: 32px; line-height: 1.25; }
+.tv-orario { font-size: 24px; color: var(--tenue); }
+.tv-dopo { font-size: 24px; color: var(--tenue); margin-top: 8px; }
+.tv-dopo b { color: var(--testo); font-weight: 400; }
+.tv-palinsesto { list-style: none; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--bordo); display: flex; flex-direction: column; gap: 12px; }
+.tv-palinsesto li { font-size: 23px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-palinsesto .quando { color: var(--accento); margin-right: 12px; font-variant-numeric: tabular-nums; }
+.preferiti { display: flex; flex-wrap: wrap; gap: 14px; margin-top: auto; padding: 8px 4px 4px; }
+.chip {
+  font: inherit;
+  font-size: 24px;
+  color: var(--testo);
+  background: rgba(255, 255, 255, 0.07);
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 24px;
+  outline: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.chip .numero { color: var(--accento); margin-right: 8px; }
+
+/* Casa */
+.entita-griglia {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 22px;
+  align-content: start;
+  padding: 4px;
+}
+.entita {
+  font: inherit;
+  color: var(--testo);
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 0;
+  border-radius: 20px;
+  padding: 16px 20px;
+  outline: none;
+  min-width: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s;
+}
+/* Sistema in colonna stretta (pagina 2) */
+.sistema.compatta .metriche { margin: 22px 0 0; gap: 18px; }
+.sistema.compatta .dettagli { grid-template-columns: 1fr 1fr; gap: 22px 24px; font-size: 28px; margin-top: auto; }
+.sistema.compatta .card-titolo .sotto { font-size: 20px; }
+
+.entita-griglia > .messaggio { grid-column: 1 / -1; margin-top: 0; }
+.entita-griglia.fitta { grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+/* Titolo di gruppo: occupa tutta la riga, con una linea che separa i gruppi */
+.gruppo-titolo {
+  grid-column: 1 / -1;
+  font-size: 18px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accento);
+  padding-top: 14px;
+  border-top: 1px solid var(--bordo);
+}
+.gruppo-titolo:first-child { border-top: 0; padding-top: 4px; }
+.entita-griglia.fitta .entita { padding: 8px 16px; border-radius: 16px; }
+.entita-griglia.fitta .nome { font-size: 17px; }
+.entita-griglia.fitta .valore { font-size: 24px; margin-top: 0; }
+.entita.commutabile { cursor: pointer; }
+.entita .nome { display: block; font-size: 20px; color: var(--tenue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entita .valore { display: block; font-size: 30px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entita.acceso { background: rgba(255, 196, 107, 0.18); }
+.entita.acceso .valore { color: var(--medio); }
+
+/* Film (DLNA): lista che scorre dentro la card, una riga per film o cartella */
+.film-lista {
+  /* Riferimento di offsetTop per lo scorrimento (senza, si misura dalla card e la salita non scorre) */
+  position: relative;
+  list-style: none;
+  scroll-behavior: smooth;
+  flex: 1;
+  min-height: 0;
+  margin: 10px -14px 0;
+  padding: 6px 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.film-lista li { flex: none; }
+/* Sfumatura in basso solo se sotto ci sono altre voci: in fondo alla lista l'ultima riga resta piena */
+.film-lista.altro-sotto {
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent);
+}
+.film-lista .messaggio { margin-top: 8px; font-size: 22px; }
+.voce-film {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--testo);
+  font: inherit;
+  text-align: left;
+  padding: 7px 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  outline: none;
+  cursor: pointer;
+}
+.voce-film.focusable:focus { transform: none; box-shadow: 0 0 0 3px #ffffff; background: rgba(255, 255, 255, 0.14); }
+.film-titolo { flex: 1; min-width: 0; font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.film-dettaglio { flex: none; font-size: 17px; color: var(--tenue); }
+/* Icona cartella disegnata (il font della TV non ha ▸) */
+.voce-film.cartella .film-titolo::before {
+  content: "";
+  display: inline-block;
+  width: 24px;
+  height: 18px;
+  margin-right: 12px;
+  vertical-align: -2px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath fill='%237aa2ff' d='M0 2a2 2 0 0 1 2-2h7l2 3h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2z'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+.voce-film.su .film-titolo { color: var(--accento); }
+.film-percorso { color: var(--accento); margin-right: 10px; max-width: 300px; display: inline-block; vertical-align: bottom; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.film-percorso:empty { display: none; }
+
+/* Tile "Scegli app" in fondo alla barra */
+.tile-scegli { background: transparent; border: 2px dashed var(--bordo); }
+.tile-scegli .tile-icona { font-size: 36px; font-weight: 300; color: var(--accento); }
+
+/* Scelta delle app preferite */
+.preferite-griglia {
+  display: grid;
+  /* 9 colonne stanno nel pannello (1388 px utili); il margine lascia spazio all'ingrandimento del focus */
+  grid-template-columns: repeat(9, 124px);
+  justify-content: space-between;
+  gap: 20px;
+  max-height: 680px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 18px;
+  margin: 0 -18px;
+}
+.tile-preferita { position: relative; opacity: 0.55; }
+.tile-preferita.scelta { opacity: 1; background: rgba(122, 162, 255, 0.2); }
+.tile-preferita.scelta::after {
+  content: "\2605";
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 22px;
+  color: var(--medio);
+}
+
+/* ---------- Salvaschermo (OLED: sfondo nero, contenuto che si sposta) ---------- */
+#salvaschermo { position: fixed; inset: 0; background: #000; z-index: 30; cursor: none; }
+#salvaschermo[hidden] { display: none; }
+.ss-contenuto {
+  position: absolute;
+  top: 0;
+  left: 0;
+  text-align: center;
+  color: #c9d1e6;
+  opacity: 0.7;
+  transition: opacity 1.5s;
+}
+.ss-ora { font-size: 220px; font-weight: 200; letter-spacing: -6px; line-height: 1; font-variant-numeric: tabular-nums; }
+.ss-data { font-size: 42px; margin-top: 10px; }
+.ss-meteo { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 42px; margin-top: 18px; }
+.ss-meteo svg { width: 80px; height: 80px; }
+
+/* ---------- Pagina 1 a tre colonne: In onda, Meteo e Film più compatte ---------- */
+.griglia .card { padding: 26px 32px; }
+.griglia .tv-canale { font-size: 36px; }
+.griglia .tv-programma { font-size: 27px; }
+.griglia .tv-orario, .griglia .tv-dopo { font-size: 21px; }
+.griglia .tv-palinsesto li { font-size: 20px; }
+.griglia .tv-palinsesto { margin-top: 12px; padding-top: 12px; gap: 8px; }
+
+.griglia .meteo-corrente { gap: 22px; margin: auto 0; }
+.griglia .meteo-corrente .icona-grande { width: 112px; height: 112px; }
+.griglia .meteo-corrente .temp { font-size: 84px; letter-spacing: -2px; }
+.griglia .meteo-corrente .descrizione { font-size: 25px; }
+.griglia .meteo-corrente .extra { font-size: 19px; margin-top: 4px; }
+.griglia .previsioni { gap: 8px; }
+.griglia .giorno { padding: 6px 2px 8px; border-radius: 16px; }
+.griglia .giorno .nome { font-size: 19px; }
+.griglia .giorno svg { width: 40px; height: 40px; }
+.griglia .giorno .minmax { font-size: 20px; }
+.griglia .giorno .minmax .min { margin-left: 4px; }
+.griglia .giorno .pioggia { font-size: 16px; min-height: 20px; }
+
+
+/* ---------- Pagina 2: la card Casa occupa lo spazio rimasto ---------- */
+.casa-card .entita-griglia,
+.casa-card .entita-griglia.fitta { grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 10px; }
+.casa-card .entita-griglia.fitta .entita { padding: 14px 20px; border-radius: 18px; }
+.casa-card .entita-griglia.fitta .nome { font-size: 20px; }
+.casa-card .entita-griglia.fitta .valore { font-size: 30px; margin-top: 2px; }
+.casa-card .gruppo-titolo { font-size: 20px; padding-top: 18px; }
+.casa-card .gruppo-titolo:first-child { padding-top: 6px; }
+
+/* Riavvia TV staccato dagli altri comandi, sul bordo destro */
+#ctl-app { margin-left: auto; }

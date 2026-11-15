@@ -1,0 +1,58 @@
+{
+  "dlna": {
+    "url": ""
+  },
+  "tmdb": {
+    "apiKey": ""
+  },
+  "homeAssistant": {
+    "url": "http://192.168.1.10:8123",
+    "token": "INCOLLA-QUI-IL-TOKEN-A-LUNGA-DURATA",
+    "ordineGruppi": [
+      "Clima",
+      "Luci",
+      "Altro"
+    ],
+    "gruppi": [
+      {
+        "nome": "Clima",
+        "entita": [
+          {
+            "id": "climate.sala",
+            "nome": "Sala"
+          }
+        ]
+      },
+      {
+        "nome": "Luci",
+        "entita": [
+          "light.soggiorno",
+          "switch.presa_tv"
+        ]
+      }
+    ],
+    "nomi": {
+      "switch.presa_tv": "Presa TV"
+    }
+  },
+  "canaliPreferiti": [
+    {
+      "numero": "1",
+      "nome": "Rai 1"
+    },
+    {
+      "numero": "5",
+      "nome": "Canale 5"
+    },
+    {
+      "numero": "7",
+      "nome": "La7"
+    }
+  ],
+  "homeIds": [
+    "com.webos.app.home"
+  ],
+  "salvaschermoIds": [
+    "com.webos.app.screensaver"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "it.casa.dashboard.film",
+  "version": "1.0.8",
+  "vendor": "Dashboard webOS",
+  "type": "web",
+  "main": "index.html",
+  "title": "Film",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#0b1020",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "uiRevision": 2
+}
