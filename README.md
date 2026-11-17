@@ -1,5 +1,7 @@
 # Dashboard webOS
 
+> **Progetto realizzato interamente con l'intelligenza artificiale, in *vibe coding*.** Codice, script e documentazione sono stati scritti da un'AI seguendo le indicazioni dell'autore, senza una revisione manuale riga per riga. Usalo sapendolo, a tuo rischio.
+
 App a schermo intero per la TV LG rootata (Homebrew Channel), pensata per LG G6 con webOS 26. Si usa col telecomando o col puntatore del Magic Remote.
 
 ## Pagina 1: panoramica
