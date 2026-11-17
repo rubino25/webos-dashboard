@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Sfondo (js/sfondi.js): due livelli per la dissolvenza; dietro la dashboard e, più chiaro, nel salvaschermo -->
+  <div id="sfondo" class="sfondo"><img class="sfondo-img" alt=""><img class="sfondo-img" alt=""></div>
   <div id="schermo">
     <div id="pagine">
 
@@ -128,6 +130,7 @@
       <div id="ss-ora" class="ss-ora"></div>
       <div id="ss-data" class="ss-data"></div>
       <div id="ss-meteo" class="ss-meteo"></div>
+      <div id="ss-didascalia" class="ss-didascalia"></div>
     </div>
   </div>
 
@@ -150,6 +153,7 @@
           </div>
           <div id="esito-citta" class="nota"></div>
           <button id="btn-secondi" class="focusable btn" type="button"></button>
+          <button id="btn-sfondi" class="focusable btn" type="button"></button>
           <h3>Accensione a distanza (Wake-on-LAN)</h3>
           <label for="input-wol-nome">Nome e indirizzo MAC del dispositivo</label>
           <div class="riga">
@@ -164,13 +168,14 @@
         <div class="colonna">
           <h3>App</h3>
           <button id="btn-preferite" class="focusable btn" type="button"></button>
-          <div class="nota">Nella barra: OK tenuto premuto su un'app per spostarla o toglierla.</div>
+          <div class="nota">Nella barra: OK tenuto premuto per spostare o togliere.</div>
           <h3>Avvio, Home e salvaschermo</h3>
           <button id="btn-home" class="focusable btn" type="button"></button>
-          <div class="nota">Con la dashboard come Home, premi Home due volte di seguito per la Home LG.</div>
+          <div id="nota-home" class="nota"></div>
           <button id="btn-accensione" class="focusable btn" type="button"></button>
           <button id="btn-salvaschermo" class="focusable btn" type="button"></button>
           <button id="btn-salvaschermo-lg" class="focusable btn" type="button"></button>
+          <button id="btn-aggiornamenti" class="focusable btn" type="button"></button>
           <button id="btn-ripristina-lg" class="focusable btn avviso" type="button">Ripristina Home e salvaschermo LG</button>
         </div>
       </div>
@@ -204,6 +209,7 @@
   <script src="js/tv.js"></script>
   <script src="js/casa.js"></script>
   <script src="js/film.js"></script>
+  <script src="js/sfondi.js"></script>
   <script src="js/avvio.js"></script>
 </body>
 </html>

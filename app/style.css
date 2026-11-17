@@ -360,7 +360,7 @@ svg .nebbia { stroke: #c4cbe0; stroke-width: 4; stroke-linecap: round; }
 .btn.piccolo { padding: 12px 24px; font-size: 24px; }
 /* minmax(0, …): sulla TV (Chromium 132) le caselle di testo allargavano la loro colonna e schiacciavano l'altra */
 .colonne { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 56px; }
-.colonna { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.colonna { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .overlay.sopra { z-index: 12; }
 .scelta-opzioni { display: flex; flex-direction: column; gap: 14px; max-height: 760px; overflow-y: auto; overflow-x: hidden; padding: 8px 16px; margin: 0 -8px; }
 .pannello label { color: var(--tenue); font-size: 26px; }
@@ -616,6 +616,35 @@ svg .nebbia { stroke: #c4cbe0; stroke-width: 4; stroke-linecap: round; }
   font-size: 22px;
   color: var(--medio);
 }
+
+/* ---------- Sfondi (js/sfondi.js) ---------- */
+.sfondo { display: none; position: fixed; inset: 0; z-index: 0; overflow: hidden; background: var(--sfondo); }
+body.con-sfondo .sfondo { display: block; }
+body.con-sfondo #schermo { background: transparent; z-index: 1; }
+.sfondo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 2.5s ease; }
+.sfondo-img.visibile { opacity: 1; }
+/* Sulla dashboard l'immagine resta scura: card e testi devono leggersi */
+.sfondo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(11, 16, 32, 0.74) 0%, rgba(11, 16, 32, 0.84) 55%, rgba(11, 16, 32, 0.9) 100%);
+  transition: background 1.5s;
+}
+/* Nel salvaschermo: l'immagine più chiara, che si muove piano; la dashboard sotto non si vede */
+body.ss-con-sfondo #schermo { visibility: hidden; }
+body.ss-con-sfondo #salvaschermo { background: transparent; }
+body.ss-con-sfondo .sfondo::after { background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.55)); }
+body.ss-con-sfondo .sfondo-img.visibile { animation: sfondo-lento 90s ease-in-out infinite alternate; }
+body.ss-con-sfondo .ss-contenuto { opacity: 0.92; text-shadow: 0 3px 18px rgba(0, 0, 0, 0.75); color: #eef2ff; }
+@keyframes sfondo-lento {
+  from { transform: scale(1.02) translate(0, 0); }
+  to { transform: scale(1.12) translate(-2%, -1.5%); }
+}
+.ss-didascalia { display: none; font-size: 24px; margin-top: 22px; max-width: 900px; margin-left: auto; margin-right: auto; color: #c9d1e6; }
+body.ss-con-sfondo .ss-didascalia { display: block; }
+.ss-didascalia:empty { display: none !important; }
+#esito-citta:empty { display: none; }
 
 /* ---------- Salvaschermo (OLED: sfondo nero, contenuto che si sposta) ---------- */
 #salvaschermo { position: fixed; inset: 0; background: #000; z-index: 30; cursor: none; }

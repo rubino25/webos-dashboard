@@ -3,6 +3,7 @@
 #
 #   python3 dlna.py sfoglia [ID_CARTELLA] [URL_SERVER]
 #   python3 dlna.py indice [URL_SERVER]      (tutti i video, con le cartelle in cui stanno: app Film)
+#   python3 dlna.py immagini [URL_SERVER]    (le foto della cartella Foto: sfondi della dashboard)
 #
 # Senza ID parte dalla cartella dei video e scende da sola finché c'è una sola sottocartella.
 # Senza URL_SERVER cerca il server in rete (SSDP) e lo ricorda in /tmp.
@@ -201,14 +202,59 @@ def indice(url):
     return {'server': radice['server'], 'titolo': radice['titolo'], 'video': video}
 
 
+def risoluzione(testo):
+    m = re.match(r'(\d+)x(\d+)', testo or '')
+    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+
+
+def immagini(url, massimo=500):
+    # Foto per gli sfondi: cartella "Foto" (o Immagini, Pictures, Photos) della radice e tutte le sottocartelle.
+    # Di ogni foto sceglie la versione più piccola larga almeno 1280 px (il server spesso ne offre più d'una).
+    srv = server(url)
+    radice, _, _ = browse(srv, '0', 0, 50)
+    cartelle = [attributo(c, 'id') for c in re.findall(r'<container\b.*?</container>', radice, re.S)
+                if re.match(r'(?i)(foto|immagini|pictures?|photos?|images?)\b', tag(c, 'dc:title'))]
+    foto = []
+
+    def visita(oid, profondita):
+        inizio = 0
+        while len(foto) < massimo:
+            risultato, totale, n = browse(srv, oid, inizio, 200)
+            for it in re.findall(r'<item\b.*?</item>', risultato, re.S):
+                if 'imageItem' not in tag(it, 'upnp:class'):
+                    continue
+                versioni = []
+                for a, indirizzo in re.findall(r'<res\b([^>]*)>(.*?)</res>', it, re.S):
+                    w, h = risoluzione(attributo(a, 'resolution'))
+                    versioni.append((w, h, html.unescape(indirizzo.strip())))
+                if not versioni:
+                    continue
+                grandi = sorted(v for v in versioni if v[0] >= 1280)
+                w, h, indirizzo = grandi[0] if grandi else max(versioni)
+                foto.append({'titolo': tag(it, 'dc:title'), 'url': indirizzo, 'larghezza': w, 'altezza': h,
+                             'data': tag(it, 'dc:date')})
+            if profondita < 6:
+                for c in re.findall(r'<container\b.*?</container>', risultato, re.S):
+                    visita(attributo(c, 'id'), profondita + 1)
+            inizio += n
+            if n == 0 or inizio >= totale or inizio >= 2000:
+                break
+
+    for oid in cartelle:
+        visita(oid, 0)
+    return {'server': {'nome': srv['nome'], 'udn': srv['udn']}, 'foto': foto[:massimo]}
+
+
 def main():
     comando = sys.argv[1] if len(sys.argv) > 1 else ''
-    if comando not in ('sfoglia', 'indice'):
-        print('uso: dlna.py sfoglia [ID] [URL] | dlna.py indice [URL]', file=sys.stderr)
+    if comando not in ('sfoglia', 'indice', 'immagini'):
+        print('uso: dlna.py sfoglia [ID] [URL] | dlna.py indice [URL] | dlna.py immagini [URL]', file=sys.stderr)
         sys.exit(2)
     try:
         if comando == 'indice':
             out = indice(sys.argv[2] if len(sys.argv) > 2 else '')
+        elif comando == 'immagini':
+            out = immagini(sys.argv[2] if len(sys.argv) > 2 else '')
         else:
             out = sfoglia(sys.argv[2] if len(sys.argv) > 2 else '', sys.argv[3] if len(sys.argv) > 3 else '')
     except Exception as e:

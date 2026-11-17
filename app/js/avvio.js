@@ -41,6 +41,9 @@ async function leggiOpzioniTv() {
     impostazioni.accensione = v.ACCENSIONE === '1';
     impostazioni.salvaschermoLg = v.SALVASCHERMO_LG === '1';
     impostazioni.web = v.PAGINA_WEB !== '0';
+    impostazioni.homeRimossa = v.HOME_LG_RIMOSSA === '1';
+    impostazioni.aggiornamentiBloccati = v.AGGIORNAMENTI_BLOCCATI === '1';
+    impostazioni.alleggerisci = v.ALLEGGERISCI === '1';
     salvaImpostazioni();
     aggiornaPannello();
   } catch (e) { /* servizio non raggiungibile: restano le impostazioni locali */ }
@@ -81,7 +84,94 @@ async function ripristinaLg() {
   impostazioni.salvaschermoLg = false;
   if (await scriviOpzioniTv()) toast('Home, accensione e salvaschermo tornano quelli LG');
   salvaImpostazioni();
+  await leggiOpzioniTv(); // "imposta 0" rimette anche la Home LG, se era stata rimossa
   aggiornaPannello();
+}
+
+// Tre modi per la Home: LG, dashboard (con la Home LG di riserva), solo dashboard (Home LG rimossa dal sistema)
+const MODI_HOME = {
+  lg: { nome: 'Home LG', nota: 'Il tasto Home apre la Home LG.' },
+  dashboard: { nome: 'dashboard', nota: 'Premi Home due volte di seguito per la Home LG.' },
+  solo: { nome: 'solo dashboard', nota: 'Home LG rimossa dal sistema (si rimette da qui o con l\'app Home LG).' },
+};
+const modoHome = () => (impostazioni.homeRimossa ? 'solo' : impostazioni.home ? 'dashboard' : 'lg');
+
+async function scegliHome() {
+  const attuale = modoHome();
+  const v = await scegli('Home della TV', [
+    { etichetta: 'Home LG', valore: 'lg', attiva: attuale === 'lg' },
+    { etichetta: 'Dashboard, con la Home LG di riserva', valore: 'dashboard', attiva: attuale === 'dashboard' },
+    { etichetta: 'Solo dashboard: rimuovi la Home LG', valore: 'solo', attiva: attuale === 'solo' },
+    { etichetta: 'Annulla', valore: null },
+  ]);
+  if (!v || v === attuale) return;
+  try {
+    if (IS_WEBOS) {
+      // "imposta" con la dashboard non più Home rimette da solo la Home LG
+      if (v === 'solo') await servizio('rimuovi-home');
+      else {
+        if (attuale === 'solo') await servizio('ripristina-home');
+        impostazioni.home = v === 'dashboard';
+        if (!(await scriviOpzioniTv())) return;
+      }
+    }
+    impostazioni.home = v !== 'lg';
+    impostazioni.homeRimossa = v === 'solo';
+    salvaImpostazioni();
+    toast(v === 'solo' ? 'Home LG rimossa: la Home è solo la dashboard'
+      : v === 'dashboard' ? 'Home: dashboard (Home due volte per la Home LG)' : 'Il tasto Home apre di nuovo la Home LG');
+  } catch (e) {
+    toast('Non riuscito: ' + e.message);
+  }
+  await leggiOpzioniTv();
+  aggiornaPannello();
+}
+
+// Aggiornamenti del firmware LG: un aggiornamento farebbe perdere il root, quindi di norma bloccati
+async function commutaAggiornamenti() {
+  const bloccati = impostazioni.aggiornamentiBloccati;
+  if (bloccati) {
+    const ok = await scegli('Consentire gli aggiornamenti LG? Un aggiornamento farebbe perdere il root', [
+      { etichetta: 'No, lasciali bloccati', valore: null },
+      { etichetta: 'Sì, consentili (dal prossimo riavvio)', valore: true },
+    ]);
+    if (!ok) return;
+  }
+  try {
+    if (IS_WEBOS) await servizio('aggiornamenti ' + (bloccati ? 'sblocca' : 'blocca'));
+    impostazioni.aggiornamentiBloccati = !bloccati;
+    toast(bloccati ? 'Aggiornamenti LG consentiti dal prossimo riavvio' : 'Aggiornamenti LG bloccati');
+  } catch (e) {
+    toast('Non riuscito: ' + e.message);
+  }
+  await leggiOpzioniTv();
+  aggiornaPannello();
+}
+
+// Menu "Sistema LG": aggiornamenti e app che LG precarica di nascosto (Prime Video e browser: ~140 MB;
+// Netflix no: LG la ricarica subito)
+async function scegliSistemaLg() {
+  for (;;) {
+    const v = await scegli('Sistema LG', [
+      { etichetta: 'Aggiornamenti LG: ' + (impostazioni.aggiornamentiBloccati ? 'bloccati' : 'consentiti'), valore: 'aggiornamenti' },
+      { etichetta: 'Chiudi le app che LG precarica (Prime Video, browser): ' + siNo(impostazioni.alleggerisci), valore: 'precaricate' },
+      { etichetta: 'Fatto', valore: 'fatto' },
+    ]);
+    if (!v || v === 'fatto') break;
+    if (v === 'aggiornamenti') await commutaAggiornamenti();
+    if (v === 'precaricate') {
+      const attiva = !impostazioni.alleggerisci;
+      try {
+        if (IS_WEBOS) await servizio('alleggerisci ' + (attiva ? 'on' : 'off'));
+        impostazioni.alleggerisci = attiva;
+        toast(attiva ? 'Le app precaricate da LG verranno chiuse (si aprono comunque, solo un po\' più lente)' : 'LG torna a precaricare le app');
+      } catch (e) {
+        toast('Non riuscito: ' + e.message);
+      }
+      await leggiOpzioniTv();
+      aggiornaPannello();
+    }
+  }
 }
 
 async function apriHomeLg() {
@@ -100,11 +190,20 @@ const siNo = (v) => (v ? 'Sì' : 'No');
 
 function aggiornaPannello() {
   $('#btn-secondi').textContent = 'Mostra i secondi: ' + siNo(impostazioni.secondi);
-  $('#btn-home').textContent = 'Usa la dashboard come Home: ' + siNo(impostazioni.home);
+  $('#btn-sfondi').textContent = descriviSfondi();
+  $('#btn-home').textContent = 'Home: ' + MODI_HOME[modoHome()].nome;
+  $('#nota-home').textContent = MODI_HOME[modoHome()].nota;
+  // Con la Home LG rimossa il pulsante "Home LG" in alto non avrebbe dove andare
+  $('#btn-home-lg').style.display = impostazioni.homeRimossa ? 'none' : '';
   $('#btn-accensione').textContent = "Apri all'accensione della TV: " + siNo(impostazioni.accensione);
   $('#btn-salvaschermo').textContent = 'Salvaschermo della dashboard: ' +
     (impostazioni.salvaschermoMin ? `dopo ${impostazioni.salvaschermoMin} min` : 'mai');
   $('#btn-salvaschermo-lg').textContent = 'Sostituisci il salvaschermo LG: ' + siNo(impostazioni.salvaschermoLg);
+  // Testo corto: il pulsante deve stare su una riga (il pannello è pieno)
+  $('#btn-aggiornamenti').textContent = impostazioni.aggiornamentiBloccati
+    ? (impostazioni.alleggerisci ? 'Sistema LG: niente aggiornamenti né precarico' : 'Sistema LG: aggiornamenti bloccati')
+    : 'Sistema LG: aggiornamenti consentiti' + (impostazioni.alleggerisci ? ', niente precarico' : '');
+  $('#btn-aggiornamenti').classList.toggle('avviso', !impostazioni.aggiornamentiBloccati);
   $('#btn-preferite').textContent = `App preferite nella barra: ${(impostazioni.preferite || []).length}`;
   $('#btn-wol-ingresso').textContent = "Accendilo scegliendo l'ingresso: " +
     (impostazioni.wolIngresso ? impostazioni.wolIngressoNome || nomeIngresso(impostazioni.wolIngresso) : 'nessuno');
@@ -160,6 +259,7 @@ async function ricaricaImpostazioni() {
   if (!cambiate) return;
   if (prima.lat !== impostazioni.lat || prima.lon !== impostazioni.lon) aggiornaMeteo();
   if (JSON.stringify(prima.preferite) !== JSON.stringify(impostazioni.preferite) && !tileInSpostamento) disegnaApp();
+  if (JSON.stringify([prima.sfondi, prima.sfondoMin]) !== JSON.stringify([impostazioni.sfondi, impostazioni.sfondoMin])) applicaSfondi(true);
   aggiornaOrologio();
   aggiornaWolUI();
   aggiornaPannello();
@@ -279,9 +379,9 @@ $('#btn-secondi').addEventListener('click', () => {
   aggiornaPannello();
   aggiornaOrologio();
 });
-$('#btn-home').addEventListener('click', () => commutaOpzione('home',
-  'Dashboard come Home. Per la Home LG premi Home due volte di seguito',
-  'Il tasto Home apre di nuovo la Home LG'));
+$('#btn-home').addEventListener('click', scegliHome);
+$('#btn-sfondi').addEventListener('click', scegliSfondi);
+$('#btn-aggiornamenti').addEventListener('click', scegliSistemaLg);
 $('#btn-accensione').addEventListener('click', () => commutaOpzione('accensione',
   "La dashboard si aprirà all'accensione", "All'accensione torna il comportamento LG"));
 $('#btn-salvaschermo-lg').addEventListener('click', () => commutaOpzione('salvaschermoLg',
@@ -321,6 +421,7 @@ function attivaSalvaschermo() {
   if (!$('#scegli-preferite').hidden) chiudiScegliPreferite();
   aggiornaMeteoSalvaschermo();
   $('#salvaschermo').hidden = false;
+  sfondoSalvaschermo(true);
   aggiornaOrologio();
   spostaSalvaschermo();
   timerSalvaschermo = setInterval(spostaSalvaschermo, SPOSTAMENTO_SALVASCHERMO);
@@ -331,6 +432,7 @@ function disattivaSalvaschermo() {
   salvaschermoAttivo = false;
   clearInterval(timerSalvaschermo);
   $('#salvaschermo').hidden = true;
+  sfondoSalvaschermo(false);
   ultimaAttivita = Date.now();
 }
 
@@ -466,7 +568,7 @@ document.addEventListener('keydown', (e) => {
         if (attivo.id === 'input-citta') cercaCittaDaPannello();
         else salvaWolDaPannello();
         e.preventDefault();
-      } else if (attivo && attivo.classList.contains('tile-app')) {
+      } else if (attivo && ['tile-app', 'tile-lancio', 'tile-preferita'].some((c) => attivo.classList.contains(c))) {
         // OK breve apre l'app (al rilascio), OK tenuto premuto apre il menu
         e.preventDefault();
         if (!e.repeat && !timerPressione) {
@@ -552,6 +654,7 @@ document.addEventListener('webOSRelaunch', () => {
   await caricaConfig();
   await leggiFileImpostazioni();
   aggiornaWolUI();
+  applicaSfondi();
 
   aggiornaMeteo();
   caricaInfoTv();

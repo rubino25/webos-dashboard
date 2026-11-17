@@ -4,10 +4,11 @@
 #  - se attivato, sostituisce Home e salvaschermo LG e apre la dashboard all'accensione
 #  - timer di spegnimento
 #  - pagina web di configurazione (configura.py, porta 8095)
+#  - Home LG rimossa e aggiornamenti LG bloccati, riapplicati se il sistema li annulla
 #
 # Uso: servizio.sh start | stop | run | opzioni | imposta H A S [home_ids] [salvaschermo_ids]
 #                  ripristina | home-lg | salta-home | tasto-home | timer MIN | annulla-timer | stato-timer | spegni | riavvia
-#                  web on|off
+#                  web on|off | rimuovi-home | ripristina-home | aggiornamenti blocca|sblocca | alleggerisci on|off
 #
 # Emergenza da SSH, per tornare a Home e salvaschermo LG:  sh servizio.sh ripristina
 APP_ID=it.casa.dashboard
@@ -50,6 +51,136 @@ leggi_opzioni() {
 }
 
 contiene() { case " $1 " in *" $2 "*) return 0 ;; esac; return 1; }
+
+# ---------- Home LG rimossa ----------
+# blockSystemApp è la funzione di LG per togliere un'app di sistema: la Home LG resta nella memoria di sola
+# lettura, ma il sistema non la carica più (elenco in BLOCCATE).
+# All'avvio però SAM riscrive quell'elenco con quello che riceve da LG (provato il 17/11: dopo ~30 s la Home
+# era tornata): la scelta dell'utente sta quindi in DA_RIMUOVERE e monitor_home la riapplica di continuo.
+# Si annulla con releaseBlockSystemApp: "ripristina-home", "ripristina", app Home LG, ripristina-lg.sh dal PC.
+HOME_LG=com.webos.app.home
+BLOCCATE=/var/preferences/com.webos.applicationManager/blockedSystemAppList
+DA_RIMUOVERE=$DIR/home_lg_rimossa
+SENZA_DASHBOARD=$DIR/senza-dashboard.sh
+
+# Bloccata adesso (stato del sistema), non la scelta dell'utente
+home_lg_rimossa() { grep -qs "\"$HOME_LG\"" "$BLOCCATE"/*.json; }
+# Scelta dell'utente (o bloccata comunque): per il tasto Home e il comando home-lg
+home_lg_tolta() { [ -f "$DA_RIMUOVERE" ] || home_lg_rimossa; }
+
+blocca_home_lg() {
+  home_lg_rimossa || luna-send -n 1 -w 5000 luna://com.webos.applicationManager/blockSystemApp \
+    "{\"id\":\"$HOME_LG\",\"forceBlockSystemApp\":false}" >/dev/null 2>&1 </dev/null
+  home_lg_rimossa && chiudi_processo_home
+}
+
+rilascia_home_lg() {
+  rm -f "$DA_RIMUOVERE"
+  home_lg_rimossa || return 0
+  luna-send -n 1 -w 5000 luna://com.webos.applicationManager/releaseBlockSystemApp "{\"id\":\"$HOME_LG\"}" >/dev/null 2>&1 </dev/null
+}
+
+# ---------- Aggiornamenti LG bloccati ----------
+# Il segno è quello di Homebrew Channel: a ogni avvio HBChannel e Glasshouse mettono in /etc/hosts i server
+# principali (snu, su, su-dev, su-ssl). Il programma di aggiornamento (/usr/sbin/update) conosce anche
+# nsu.lge.com e snu-dev.lge.com, e un indirizzo fisso: li aggiungiamo noi. Glasshouse, quando riscrive
+# /etc/hosts, tiene le righe messe da altri programmi; la sua configurazione non si tocca.
+# Anche la schermata "Aggiornamento software" (app di sistema nascosta) viene tolta con blockSystemApp,
+# come la Home LG; il sistema la rimette all'avvio e monitor_home la ritoglie.
+SEGNO_AGGIORNAMENTI=/var/luna/preferences/webosbrew_block_updates
+SERVER_AGGIORNAMENTI="snu.lge.com su.lge.com su-ssl.lge.com su-dev.lge.com nsu.lge.com snu-dev.lge.com"
+IP_AGGIORNAMENTI=156.147.69.32
+APP_AGGIORNAMENTO=com.webos.app.softwareupdate
+
+aggiornamenti_bloccati() { [ -f "$SEGNO_AGGIORNAMENTI" ]; }
+app_bloccata() { grep -qs "\"$1\"" "$BLOCCATE"/*.json; }
+
+applica_blocco_aggiornamenti() {
+  aggiornamenti_bloccati || return 0
+  mancanti=""
+  for h in $SERVER_AGGIORNAMENTI; do
+    grep -qE "^(0\.0\.0\.0|127\.0\.0\.1)[[:space:]]+$h([[:space:]]|\$)" /etc/hosts 2>/dev/null || mancanti="$mancanti $h"
+  done
+  if [ -n "$mancanti" ]; then
+    { echo "# Aggiornamenti LG bloccati (dashboard)"; for h in $mancanti; do printf '0.0.0.0\t%s\n::\t%s\n' "$h" "$h"; done; } >> /etc/hosts
+  fi
+  iptables -C OUTPUT -d "$IP_AGGIORNAMENTI" -j REJECT 2>/dev/null || iptables -I OUTPUT -d "$IP_AGGIORNAMENTI" -j REJECT 2>/dev/null
+  app_bloccata "$APP_AGGIORNAMENTO" || luna-send -n 1 -w 5000 luna://com.webos.applicationManager/blockSystemApp \
+    "{\"id\":\"$APP_AGGIORNAMENTO\",\"forceBlockSystemApp\":false}" >/dev/null 2>&1 </dev/null
+}
+
+# ---------- App precaricate da LG ----------
+# LG carica di nascosto alcune app per aprirle prima (webos-preload-manager, "reason":"preload" nella riga di
+# comando). Provato il 17/11: Prime Video e il browser sono "oneshot" (caricati una volta all'avvio, ~140 MB),
+# Netflix invece è "pinup reserved": chiusa, LG la ricarica in meno di 5 s, quindi resta.
+# Con ALLEGGERISCI le chiude due minuti dopo, se da quando sono partite non sono mai state in primo piano
+# (aperte dall'utente: restano e riprendono da dov'erano).
+ALLEGGERISCI=$DIR/alleggerisci
+PRECARICATE="amazon:ignition com.webos.app.browser:chrome"   # appId:nome del processo
+
+chiudi_precaricate() {
+  [ -f "$ALLEGGERISCI" ] || return 0
+  adesso=$(date +%s)
+  avvio=$(sed -n 's/^btime //p' /proc/stat)
+  for coppia in $PRECARICATE; do
+    id=${coppia%%:*}
+    nome=${coppia#*:}
+    for p in /proc/[0-9]*; do
+      [ "$(cat "$p/comm" 2>/dev/null)" = "$nome" ] || continue
+      tr '\0' ' ' < "$p/cmdline" 2>/dev/null | grep -q '"reason":"preload"' || continue
+      # Partenza del processo: campo 22 di /proc/PID/stat, in centesimi di secondo dall'accensione
+      inizio=$(( avvio + $(cut -d' ' -f22 "$p/stat" 2>/dev/null || echo 0) / 100 ))
+      [ $((adesso - inizio)) -ge 120 ] || continue
+      ultimo=$(grep " $id\$" "$FILE" 2>/dev/null | tail -n 1 | cut -d' ' -f1)
+      [ -n "$ultimo" ] && [ "$ultimo" -ge "$inizio" ] && continue
+      luna-send -n 1 -w 4000 luna://com.webos.applicationManager/closeByAppId "{\"id\":\"$id\"}" >/dev/null 2>&1 </dev/null
+    done
+  done
+}
+
+# Riapplica le scelte che il sistema può annullare (Home LG rimossa, server degli aggiornamenti,
+# app precaricate): nei primi 10 minuti ogni 15 s, poi ogni minuto (poche letture di file piccoli)
+monitor_home() {
+  giri=0
+  while :; do
+    applica_blocco_aggiornamenti
+    chiudi_precaricate
+    [ -f "$DA_RIMUOVERE" ] && ! home_lg_rimossa && blocca_home_lg
+    giri=$((giri + 1))
+    if [ "$giri" -lt 40 ]; then sleep 15; else sleep 60; fi
+  done
+}
+
+# Lo esegue l'hook di avvio se la dashboard è stata disinstallata: la Home LG torna da sola
+scrivi_senza_dashboard() {
+  mkdir -p "$DIR"
+  cat > "$SENZA_DASHBOARD" <<'EOF'
+#!/bin/sh
+# Generato da servizio.sh della dashboard: la dashboard non c'è più, quindi torna la Home LG.
+rm -f /var/lib/webosbrew/dashboard/home_lg_rimossa
+luna-send -n 1 -w 5000 luna://com.webos.applicationManager/releaseBlockSystemApp '{"id":"com.webos.app.home"}' >/dev/null 2>&1 </dev/null
+exit 0
+EOF
+  chmod +x "$SENZA_DASHBOARD"
+}
+
+# Il processo della Home resta in memoria (~100 MB) anche quando il sistema non la conosce più
+chiudi_processo_home() {
+  for p in /proc/[0-9]*; do
+    [ "$(cat "$p/comm" 2>/dev/null)" = fapp.home ] && kill "${p#/proc/}" 2>/dev/null
+  done
+}
+
+# Con la Home LG rimossa, chiudendo un'app non resta niente in primo piano: al suo posto la dashboard.
+# Si aspetta un attimo (passaggio tra un'app e l'altra) e solo a TV accesa (non in standby o a schermo spento).
+nulla_davanti() {
+  sleep 1
+  davanti=$(luna-send -n 1 -w 2000 luna://com.webos.applicationManager/getForegroundAppInfo '{}' 2>/dev/null </dev/null |
+    sed -n 's/.*"appId": *"\([^"]*\)".*/\1/p')
+  [ -z "$davanti" ] || return 0
+  luna-send -n 1 -w 2000 luna://com.webos.service.tvpower/power/getPowerState '{}' 2>/dev/null </dev/null |
+    grep -q '"state": *"Active"' && apri_dashboard
+}
 
 apri_dashboard() {
   if [ -n "$1" ]; then p=$1; else p='{}'; fi
@@ -188,11 +319,18 @@ apri_salvaschermo() {
 
 monitor_app() {
   while :; do
-    ultimo=""
+    ultimo="-"
     luna-send -i luna://com.webos.applicationManager/getForegroundAppInfo '{"subscribe":true}' 2>/dev/null |
     while read -r riga; do
+      case "$riga" in *'"appId"'*) ;; *) continue ;; esac
       id=$(echo "$riga" | sed -n 's/.*"appId": *"\([^"]*\)".*/\1/p')
-      [ -n "$id" ] && [ "$id" != "$ultimo" ] || continue
+      [ "$id" != "$ultimo" ] || continue
+      if [ -z "$id" ]; then
+        # Niente in primo piano (succede solo con la Home LG rimossa): ci va la dashboard
+        ultimo=""
+        home_lg_rimossa && nulla_davanti &
+        continue
+      fi
       # Uscendo da Live TV la trasmissione è ancora attiva per un attimo: ultimo canale visto
       [ "$ultimo" = "$LIVETV" ] && salva_canale
       ultimo=$id
@@ -267,7 +405,9 @@ monitor_accensione() {
 installa_avvio() {
   cartella=$(cd "$(dirname "$0")" && pwd)
   hook=/var/lib/webosbrew/init.d/dashboard
-  atteso=$(printf '#!/bin/sh\n[ -f %s/servizio.sh ] && sh %s/servizio.sh start\nexit 0' "$cartella" "$cartella")
+  # Dashboard disinstallata: l'hook fa tornare la Home LG, se era stata rimossa
+  scrivi_senza_dashboard
+  atteso=$(printf '#!/bin/sh\nif [ -f %s/servizio.sh ]; then sh %s/servizio.sh start; else sh %s; fi\nexit 0' "$cartella" "$cartella" "$SENZA_DASHBOARD")
   if [ "$(cat "$hook" 2>/dev/null)" != "$atteso" ]; then
     mkdir -p /var/lib/webosbrew/init.d
     printf '%s\n' "$atteso" > "$hook"
@@ -303,6 +443,7 @@ case "$1" in
     monitor_ciclo_app &
     monitor_canale &
     command -v python3 >/dev/null 2>&1 && monitor_configura &
+    monitor_home &
     wait
     ;;
   opzioni)
@@ -313,6 +454,58 @@ case "$1" in
     echo "HOME_IDS=$HOME_IDS"
     echo "SALVASCHERMO_IDS=$SALVASCHERMO_IDS"
     if [ -f "$WEB_SPENTA" ]; then echo "PAGINA_WEB=0"; else echo "PAGINA_WEB=1"; fi
+    # La scelta dell'utente (subito dopo un riavvio il sistema può non averla ancora riapplicata)
+    if [ -f "$DA_RIMUOVERE" ]; then echo "HOME_LG_RIMOSSA=1"; else echo "HOME_LG_RIMOSSA=0"; fi
+    if aggiornamenti_bloccati; then echo "AGGIORNAMENTI_BLOCCATI=1"; else echo "AGGIORNAMENTI_BLOCCATI=0"; fi
+    if [ -f "$ALLEGGERISCI" ]; then echo "ALLEGGERISCI=1"; else echo "ALLEGGERISCI=0"; fi
+    ;;
+  alleggerisci)
+    # Chiude le app precaricate da LG (subito quelle già partite da 2 minuti, poi le controlla monitor_home)
+    case "$2" in
+      on) mkdir -p "$DIR"; touch "$ALLEGGERISCI"; chiudi_precaricate ;;
+      off) rm -f "$ALLEGGERISCI" ;;
+      *) echo "Uso: $0 alleggerisci on|off" >&2; exit 1 ;;
+    esac
+    ;;
+  aggiornamenti)
+    case "$2" in
+      blocca)
+        touch "$SEGNO_AGGIORNAMENTI"
+        sync
+        applica_blocco_aggiornamenti
+        # Toglie l'avviso di un aggiornamento già trovato prima del blocco
+        luna-send -n 1 -w 5000 luna://com.webos.service.update/deleteUpdateInfo '{}' >/dev/null 2>&1 </dev/null
+        echo "Aggiornamenti LG bloccati."
+        ;;
+      sblocca)
+        # Le righe in /etc/hosts restano fino al prossimo riavvio
+        rm -f "$SEGNO_AGGIORNAMENTI"
+        sync
+        iptables -D OUTPUT -d "$IP_AGGIORNAMENTI" -j REJECT 2>/dev/null
+        luna-send -n 1 -w 5000 luna://com.webos.applicationManager/releaseBlockSystemApp \
+          "{\"id\":\"$APP_AGGIORNAMENTO\"}" >/dev/null 2>&1 </dev/null
+        echo "Aggiornamenti LG di nuovo possibili dal prossimo riavvio."
+        ;;
+      *) echo "Uso: $0 aggiornamenti blocca|sblocca" >&2; exit 1 ;;
+    esac
+    ;;
+  rimuovi-home)
+    # La dashboard diventa l'unica Home: prima un backup delle preferenze di SAM (una volta sola)
+    mkdir -p "$DIR/backup-home-lg"
+    [ -d "$DIR/backup-home-lg/applicationManager-preferences" ] ||
+      cp -a /var/preferences/com.webos.applicationManager "$DIR/backup-home-lg/applicationManager-preferences"
+    scrivi_senza_dashboard
+    leggi_opzioni
+    sh "$0" imposta 1 "$ACCENSIONE" "$SALVASCHERMO_LG" "$HOME_IDS" "$SALVASCHERMO_IDS"
+    blocca_home_lg
+    if ! home_lg_rimossa; then echo "Rimozione della Home LG non riuscita" >&2; exit 1; fi
+    touch "$DA_RIMUOVERE"
+    echo "Home LG rimossa: al suo posto la dashboard (riapplicata a ogni avvio)."
+    ;;
+  ripristina-home)
+    rilascia_home_lg
+    if home_lg_rimossa; then echo "Ripristino della Home LG non riuscito" >&2; exit 1; fi
+    echo "Home LG di nuovo presente."
     ;;
   web)
     # Pagina web di configurazione: on la riaccende (entro 3 s), off la spegne subito
@@ -337,13 +530,16 @@ case "$1" in
     printf 'HOME_DASHBOARD=%s\nACCENSIONE=%s\nSALVASCHERMO_LG=%s\nHOME_IDS="%s"\nSALVASCHERMO_IDS="%s"\n' \
       "${h:-0}" "${a:-0}" "${s:-0}" "${hid:-com.webos.app.home}" "${sid:-com.webos.app.screensaver}" > "$OPZIONI"
     imposta_tasto_home "${h:-0}"
+    # Se la dashboard non è più la Home, la Home LG deve esserci
+    [ "${h:-0}" = 1 ] || rilascia_home_lg
     ;;
   tasto-home)
     # Tasto Home intercettato: dashboard, oppure Home LG se la dashboard è già davanti o non è la Home scelta
     leggi_opzioni
     davanti=$(luna-send -n 1 -w 2000 luna://com.webos.applicationManager/getForegroundAppInfo '{}' 2>/dev/null </dev/null |
       sed -n 's/.*"appId": *"\([^"]*\)".*/\1/p')
-    if [ "$HOME_DASHBOARD" = 1 ] && [ "$davanti" != "$APP_ID" ]; then
+    # Con la Home LG rimossa c'è solo la dashboard (già davanti: torna alla panoramica)
+    if home_lg_tolta || { [ "$HOME_DASHBOARD" = 1 ] && [ "$davanti" != "$APP_ID" ]; }; then
       apri_dashboard
     else
       sh "$0" home-lg
@@ -352,12 +548,14 @@ case "$1" in
   ripristina)
     leggi_opzioni
     sh "$0" imposta 0 0 0 "$HOME_IDS" "$SALVASCHERMO_IDS"
+    rilascia_home_lg
     echo "Home, accensione e salvaschermo tornano quelli LG."
     ;;
   salta-home)
     date +%s > "$SALTA_HOME"
     ;;
   home-lg)
+    if home_lg_tolta; then echo "La Home LG è stata rimossa: la ripristini dalle Impostazioni della dashboard" >&2; exit 1; fi
     leggi_opzioni
     date +%s > "$SALTA_HOME"
     for id in $HOME_IDS; do

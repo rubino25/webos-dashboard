@@ -62,10 +62,8 @@ fi
 rm -f /var/lib/webosbrew/init.d/dashboard-recenti
 
 # Servizio in background: avvio a ogni boot tramite gli hook di Homebrew Channel, e subito.
-# Se l'app viene disinstallata l'hook non fa nulla.
-mkdir -p /var/lib/webosbrew/init.d
-printf '#!/bin/sh\n[ -f %s/servizio.sh ] && sh %s/servizio.sh start\nexit 0\n' "\$APPDIR" "\$APPDIR" > /var/lib/webosbrew/init.d/dashboard
-chmod +x /var/lib/webosbrew/init.d/dashboard
+# L'hook (/var/lib/webosbrew/init.d/dashboard) lo scrive "servizio.sh start"; se l'app viene
+# disinstallata, l'hook fa tornare la Home LG (se era stata rimossa) e nient'altro.
 sh \$APPDIR/servizio.sh stop
 sh \$APPDIR/servizio.sh start
 [ "$SENZA_AVVIO" = 1 ] || luna-send -n 1 luna://com.webos.applicationManager/launch '{"id":"$ID"}' >/dev/null

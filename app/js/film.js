@@ -12,7 +12,7 @@ const FILM_DEMO = {
   titolo: 'Film',
   voci: [
     { tipo: 'cartella', id: 'demo-serie', titolo: 'Serie di esempio', figli: 3 },
-    { tipo: 'video', id: 'd1', titolo: 'Il.Viaggio.2019.ITA.720p.x264.mkv', durata: 5400, dimensione: 900000000, url: '' },
+    { tipo: 'video', id: 'd1', titolo: 'Il.Viaggio.2019.ITA.BRRip.720p.x264.mkv', durata: 5400, dimensione: 900000000, url: '' },
     { tipo: 'video', id: 'd2', titolo: 'La.Casa.Sul.Lago.2023.WEB-DL.1080p.mkv', durata: 6000, dimensione: 4000000000, url: '' },
     { tipo: 'video', id: 'd3', titolo: 'Un-corto-di-esempio.mp4', durata: 1500, dimensione: 200000000, url: '' },
     { tipo: 'video', id: 'd4', titolo: 'Una.Sera.D.Estate.2024.FULL.HD.1080p.mkv', durata: 5700, dimensione: 15000000000, url: '' },

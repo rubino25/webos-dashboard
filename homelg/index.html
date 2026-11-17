@@ -29,8 +29,11 @@ const DASHBOARD = '/media/developer/apps/usr/palm/applications/it.casa.dashboard
 const DATI = '/var/lib/webosbrew/dashboard';
 const COMANDO =
   `if [ -f ${DASHBOARD}/servizio.sh ]; then sh ${DASHBOARD}/servizio.sh ripristina; ` +
-  `else mkdir -p ${DATI} && printf 'HOME_DASHBOARD=0\\nACCENSIONE=0\\nSALVASCHERMO_LG=0\\n' > ${DATI}/opzioni; fi; ` +
-  `date +%s > /tmp/dashboard-salta-home; grep -q HOME_DASHBOARD=0 ${DATI}/opzioni && echo RIPRISTINATA`;
+  `else mkdir -p ${DATI} && printf 'HOME_DASHBOARD=0\\nACCENSIONE=0\\nSALVASCHERMO_LG=0\\n' > ${DATI}/opzioni; ` +
+  `luna-send -n 1 -w 5000 luna://com.webos.applicationManager/releaseBlockSystemApp '{"id":"com.webos.app.home"}' >/dev/null 2>&1; fi; ` +
+  `date +%s > /tmp/dashboard-salta-home; grep -q HOME_DASHBOARD=0 ${DATI}/opzioni && ` +
+  // La Home LG può essere stata rimossa ("Solo dashboard"): deve tornare nell'elenco del sistema
+  `! grep -qs '"com.webos.app.home"' /var/preferences/com.webos.applicationManager/blockedSystemAppList/*.json && echo RIPRISTINATA`;
 
 const bridgeAttivi = new Set();
 function luna(uri, params) {

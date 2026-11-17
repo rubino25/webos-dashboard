@@ -16,7 +16,7 @@ App a schermo intero per la TV LG rootata (Homebrew Channel), pensata per LG G6 
   - *Pulsante tra i comandi*: la pillola *Accendi <nome>* accanto a *Riavvia TV*.
   
   Il pacchetto lo manda la TV (`app/wol.py`, in broadcast sulla rete di casa). Il dispositivo deve essere collegato alla rete **via cavo** (non basta il cavo dell'extender HDMI) e avere il Wake-on-LAN attivo nel BIOS e nella scheda di rete; su Windows conviene disattivare l'*Avvio rapido*.
-- **App**: *Ultimo ingresso*, *Ultima app*, *App precedente*, poi le **app preferite**. L'ultima tile *Scegli app* (o *Impostazioni → App preferite*) apre l'elenco di tutte le app: OK aggiunge o toglie. OK tenuto premuto su una preferita: sposta o togli.
+- **App**: *Ultimo ingresso*, *Ultima app*, *App precedente*, poi le **app preferite**. L'ultima tile *Scegli app* (o *Impostazioni → App preferite*) apre l'elenco di tutte le app: OK aggiunge o toglie. OK tenuto premuto su una preferita: sposta, togli o **disinstalla**; in *Tutte le app* OK tenuto premuto: apri o **disinstalla** (con conferma; solo le app rimovibili, non quelle di sistema LG né dashboard, Home LG, Homebrew Channel, Input Hook e Glasshouse).
 - **Azioni** in alto: Impostazioni, Aggiorna, Home LG, Spegni schermo.
 
 Con **▼** dalla barra delle app si passa alla pagina 2, con **▲** o Indietro si torna su.
@@ -46,6 +46,39 @@ Con la TV accesa apri **http://IP-DELLA-TV:8095** da un browser della rete di ca
 
 **Accendere o spegnere la pagina**: sulla TV, *Impostazioni → Pagina web: Sì/No* (in alto a destra nel pannello); oppure, dalla pagina stessa, *Spegni la pagina web* (per riaccenderla serve la TV). Da SSH: `sh servizio.sh web on|off`. Spenta, il server non gira affatto.
 
+### Stato della TV per altri dispositivi (`/api/sistema`)
+
+Lo stesso server risponde anche a **`GET http://IP-DELLA-TV:8095/api/sistema`**, in sola lettura: lo usa il pannello touch ESP32, che lo interroga ogni 3 secondi. Risponde in pochi millisecondi (al massimo ~0,2 s) con tutte queste chiavi, `null` se il dato non c'è:
+
+```json
+{"cpu": 23, "ram": {"usata": 2400000, "totale": 4194304}, "disco": {"usato": 7135072, "totale": 16515072},
+ "temp": null, "uptime": 93784, "carico": 0.84,
+ "app": {"id": "com.webos.app.livetv", "nome": "Live TV"}, "sorgente": "Live TV",
+ "canale": {"numero": "5", "nome": "Canale 5", "programma": "Film della sera", "inizio": "20:30", "fine": "22:00"},
+ "media": null, "immagine": "Cinema", "volume": 12, "muto": false,
+ "audio": {"uscita": "Soundbar (eARC)", "modalita": "AI Sound Pro"},
+ "info": {"modello": "OLED55XXXXX", "webos": "x.y.z", "firmware": "xx.yy.zz", "dashboard": "1.7.3"},
+ "rete": {"connessione": "Wi-Fi", "segnale": "ottimo", "ip": "192.168.1.50", "download": 1330809, "upload": 66540}}
+```
+
+| Chiave | Contenuto |
+|---|---|
+| `cpu` | uso % (intero), dal confronto con la lettura precedente di `/proc/stat` |
+| `ram`, `disco` | kB usati e totali (`/proc/meminfo`, `/media/internal`) |
+| `temp` | °C; la G6 non ha sensori leggibili, quindi `null` |
+| `uptime`, `carico` | secondi dall'accensione, carico medio di 1 minuto |
+| `app` | app davanti: id e nome come nel launcher |
+| `sorgente` | `Live TV`, `HDMI 1`…`HDMI 4`, oppure il nome dell'app |
+| `canale` | solo con Live TV davanti: numero, nome, programma in corso con inizio e fine (`null` se la guida non lo ha) |
+| `media` | solo col Media Player LG: titolo (dal server DLNA), posizione e durata in secondi, `stato` `play` o `pause` |
+| `immagine` | modalità immagine della sorgente attuale (`Cinema`, `Filmmaker`, `HDR cinema`, …) |
+| `volume`, `muto` | volume 0–100 e muto sì/no |
+| `audio` | `uscita` (`Altoparlanti TV`, `Soundbar (eARC)`, `Ottico`, `Bluetooth`, `Cuffie`, …) e `modalita` audio (`AI Sound Pro`, `Standard`, `Cinema`, `Voce chiara`, `Sport`, `Musica`, `Gioco`, …) |
+| `info` | `modello`, versione di `webos`, `firmware` e della `dashboard`: letti all'avvio del server |
+| `rete` | `connessione` (`Wi-Fi` o `Cablata`), `segnale` Wi-Fi (`ottimo`, `buono`, `discreto`, `debole`; `null` se cablata), `ip`, `download` e `upload` in bit/s (dal confronto con la lettura precedente di `/proc/net/dev`) |
+
+Non serve password e non cambia nulla sulla TV. Con la pagina web spenta (*Pagina web: No*) anche `/api/sistema` non risponde.
+
 Home Assistant resta fuori: i gruppi della card *Casa* si gestiscono già in HA con le etichette. La pagina la serve `app/configura.py`, avviato da `servizio.sh` come root (in attesa non usa CPU, circa 15 MB di memoria). Le impostazioni stanno in `/var/lib/webosbrew/dashboard/impostazioni.json`, condiviso con la dashboard. ⚠️ Per ora la pagina **non ha password**: chiunque sia sulla rete di casa può aprirla.
 
 ## Pagina 2: sistema e casa
@@ -68,12 +101,37 @@ Le app nascoste si ripristinano da *Impostazioni → App nascoste*.
 
 Da *Impostazioni → Avvio, Home e salvaschermo*:
 
-- **Usa la dashboard come Home**: il tasto Home apre la dashboard al posto della Home LG.
+- **Home**: *Home LG*, *dashboard* (il tasto Home apre la dashboard; Home due volte per la Home LG) oppure *solo dashboard*, che **toglie la Home LG dal sistema** (vedi sotto).
 - **Apri all'accensione della TV**.
-- **Salvaschermo della dashboard**: dopo N minuti senza tasti premuti mostra solo ora, data e meteo su nero, in posizione sempre diversa (adatto all'OLED). Un tasto qualsiasi lo chiude.
+- **Salvaschermo della dashboard**: dopo N minuti senza tasti premuti mostra ora, data e meteo in posizione sempre diversa (adatto all'OLED); con gli sfondi attivi sopra l'immagine del momento, che si muove piano e cambia ogni 90 secondi, altrimenti su nero. Un tasto qualsiasi lo chiude.
 - **Sostituisci il salvaschermo LG** con quello della dashboard.
+- **Sistema LG** (menu): *Chiudi le app che LG precarica* chiude Prime Video e il browser LG che la TV carica di nascosto all'avvio (~140 MB), se non li hai aperti tu; Netflix resta perché LG la ricarica subito. Aprendole partono comunque, solo un po' più lente.
+- **Aggiornamenti LG: bloccati/consentiti** (nello stesso menu): un aggiornamento del firmware farebbe perdere il root. Bloccati usa il segno di Homebrew Channel (`/var/luna/preferences/webosbrew_block_updates`, con cui HBChannel e Glasshouse bloccano a ogni avvio i server principali in `/etc/hosts`) e in più blocca `nsu.lge.com`, `snu-dev.lge.com` e l'indirizzo fisso `156.147.69.32` che il programma di aggiornamento LG conosce, e toglie la schermata *Aggiornamento software* (`com.webos.app.softwareupdate`, come la Home LG); `servizio.sh` li riapplica se spariscono. Consentirli chiede conferma e vale dal riavvio successivo. Dal PC: `sh servizio.sh aggiornamenti blocca|sblocca`.
 
 Anche senza salvaschermo, la dashboard si sposta di qualche pixel ogni 3 minuti per non stampare l'immagine sull'OLED.
+
+### Sfondi
+
+*Impostazioni → Sfondi* (menu: OK attiva o toglie una voce, *Fatto* chiude):
+
+- **Bing, foto del giorno**: paesaggi, le ultime 8 (l'elenco di Bing non permette CORS: lo scarica la TV con `curl`).
+- **NASA, immagine del giorno**: dal feed *Image of the Day* (`nasa.gov/feeds/iotd-feed/`), ridotte a 1920 px con `?w=1920`. L'API *APOD* della NASA oggi restituisce solo il logo, per questo non si usa.
+- **Foto del NAS**: la cartella *Foto* del server DLNA (`dlna.py immagini`), con tutte le sottocartelle; delle foto offerte in più formati prende la più piccola larga almeno 1280 px.
+- **Cambia ogni** 15, 30, 60 o 120 minuti; **anche nel salvaschermo** sì/no.
+
+Le immagini verticali, piccole o che non si caricano vengono saltate. L'elenco si rilegge ogni 6 ore e resta salvato nel browser della TV; sulla dashboard l'immagine è scurita perché card e testi si leggano. Codice in `app/js/sfondi.js`; impostazioni `sfondi`, `sfondoMin`, `sfondoSalvaschermo` in `impostazioni.json` (non ancora nella pagina web).
+
+### Home LG rimossa ("solo dashboard")
+
+La Home LG è un'app di sistema (`com.webos.app.home`, Flutter) nella memoria di sola lettura: cancellarla davvero non si può e scrivere lì rischierebbe di bloccare la TV. *Solo dashboard* usa invece la funzione di LG per togliere le app di sistema, `applicationManager/blockSystemApp`: il sistema non la carica più (anche dopo un riavvio; l'elenco sta in `/var/preferences/com.webos.applicationManager/blockedSystemAppList/`) e la sua memoria (~100 MB) si libera.
+
+- Chiudendo un'app (Indietro) non resta niente in primo piano: dopo un secondo `servizio.sh` apre la dashboard. Niente più lampo della Home LG.
+- Il tasto Home apre sempre la dashboard; il pulsante *Home LG* in alto sparisce.
+- Prima della rimozione `servizio.sh` salva le preferenze del gestore delle app in `/var/lib/webosbrew/dashboard/backup-home-lg/`.
+- All'avvio il sistema rimette la Home LG nell'elenco (lo riscrive con quello che riceve da LG): `servizio.sh` la toglie di nuovo dopo pochi secondi, e controlla ogni minuto. La scelta sta in `/var/lib/webosbrew/dashboard/home_lg_rimossa`.
+- Dal PC: `./rimuovi-home-lg.sh`. Per rimetterla vale tutto l'elenco di *Tornare alla Home LG* qui sotto (tranne il punto 2 e 3).
+- **Se la dashboard viene disinstallata**, al riavvio successivo l'hook di avvio (`senza-dashboard.sh`) rimette da solo la Home LG.
+- ⚠️ La rimozione è un'impostazione di LG, non del root: se un giorno si perdesse il root (aggiornamento firmware) la Home LG resterebbe tolta senza la dashboard a sostituirla. Prima di qualsiasi intervento del genere, rimetti la Home LG.
 
 ### Dashboard predefinita
 
@@ -91,15 +149,15 @@ Con la dashboard come Home, se sulla TV c'è **LG Input Hook** il tasto Home (co
 
 In un attimo, in uno qualsiasi di questi modi:
 
-1. **App "Home LG"** (icona arancione con la casetta), dalla barra della dashboard o dalla Home LG: riporta Home, accensione e salvaschermo a quelli LG e apre la Home LG. Funziona anche se la dashboard non si apre o è stata disinstallata.
-2. **Home con la dashboard aperta**: apre la Home LG (solo per quella volta).
-3. Pulsante **Home LG** in alto nella dashboard (solo per quella volta).
-4. **Impostazioni → Ripristina Home e salvaschermo LG** (o le singole opzioni su *No*).
+1. **App "Home LG"** (icona arancione con la casetta), dalla barra della dashboard o da *Tutte le app*: riporta Home, accensione e salvaschermo a quelli LG, rimette la Home LG se era stata rimossa e la apre. Funziona anche se la dashboard non si apre o è stata disinstallata.
+2. **Home con la dashboard aperta**: apre la Home LG (solo per quella volta; non con la Home LG rimossa).
+3. Pulsante **Home LG** in alto nella dashboard (solo per quella volta; non c'è con la Home LG rimossa).
+4. **Impostazioni → Home: Home LG**, oppure **Ripristina Home e salvaschermo LG**.
 5. Dal PC, anche se sulla TV non si apre nulla:
    ```bash
    ./ripristina-lg.sh
    ```
-6. Disinstallando la dashboard: il servizio non viene più avviato.
+6. Disinstallando la dashboard: il servizio non viene più avviato e, al riavvio, la Home LG rimossa torna da sola.
 
 Per tornare alla dashboard dopo un ripristino: `./attiva-dashboard.sh` oppure le Impostazioni della dashboard.
 
@@ -111,7 +169,9 @@ Da Git Bash, con la TV accesa (chiede la password root SSH una volta):
 ./installa.sh IP-DELLA-TV
 ```
 
-Gli script accettano l'indirizzo della TV come primo argomento (senza, usano `192.168.1.50`). Ricrea i pacchetti in `dist/` (dashboard e app *Home LG*), li installa, configura l'avvio automatico del servizio e apre la dashboard. Per aggiornare basta rilanciarlo: le impostazioni restano.
+Gli script accettano l'indirizzo della TV come primo argomento (senza, usano `192.168.1.50`).
+
+Ricrea i pacchetti in `dist/` (dashboard e app *Home LG*), li installa, configura l'avvio automatico del servizio e apre la dashboard. Per aggiornare basta rilanciarlo: le impostazioni restano.
 
 ### Con webOS Dev Manager
 
@@ -170,16 +230,18 @@ Poi apri <http://localhost:8765> (aggiungi `?salvaschermo` per il salvaschermo).
 | `app/js/base.js` | impostazioni, servizi Luna, finestre di scelta, navigazione |
 | `app/js/meteo.js`, `tv.js`, `film.js`, `controlli.js`, `barra.js` | pagina 1 |
 | `app/js/sistema.js`, `casa.js` | pagina 2 |
-| `app/dlna.py` | elenco dei video del server DLNA (gira come root sulla TV) |
+| `app/js/sfondi.js` | sfondi della dashboard e del salvaschermo (Bing, NASA, foto del NAS) |
+| `app/dlna.py` | elenco dei video (e delle foto, per gli sfondi) del server DLNA (gira come root sulla TV) |
 | `app/wol.py` | pacchetto Wake-on-LAN per *Accendi PC* (gira come root sulla TV) |
-| `app/configura.py`, `app/configura.html` | pagina web di configurazione sulla porta 8095 (server avviato da `servizio.sh`) |
+| `app/configura.py`, `app/configura.html` | pagina web di configurazione sulla porta 8095 (server avviato da `servizio.sh`) e `/api/sistema` per il pannello ESP32 |
 | `app/js/avvio.js` | orologio, impostazioni, salvaschermo, tasti, avvio |
-| `app/servizio.sh` | servizio root: recenti, Home/salvaschermo sostitutivi, accensione, timer |
+| `app/servizio.sh` | servizio root: recenti, Home/salvaschermo sostitutivi, Home LG rimossa, accensione, timer |
 | `build.py` | icone e pacchetto `.ipk`, senza dipendenze |
 | `homelg/` | app *Home LG*: ripristino in un attimo di Home e salvaschermo LG |
 | `film/` | app *Film*: libreria DLNA, locandine TMDB, *Continua a guardare* (`traccia.py`) |
 | `installa.sh`, `diagnostica.sh` | installazione e diagnostica via SSH |
-| `attiva-dashboard.sh`, `ripristina-lg.sh` | dashboard predefinita / ritorno a Home LG, dal PC |
+| `attiva-dashboard.sh`, `ripristina-lg.sh` | dashboard predefinita / ritorno a Home LG (anche se rimossa), dal PC |
+| `rimuovi-home-lg.sh` | toglie la Home LG dal sistema ("solo dashboard"), dal PC |
 | `revoca-accesso.sh` | toglie l'accesso SSH dedicato alla TV (chiave `dashboard-tv`) |
 
 ## Licenza

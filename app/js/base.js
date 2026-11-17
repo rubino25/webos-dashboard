@@ -8,7 +8,9 @@ const STORAGE_KEY = 'dashboard.impostazioni';
 const DEFAULTS = {
   citta: 'Roma', lat: 41.8919, lon: 12.5113, secondi: false,
   ordine: [], nascoste: [], preferite: null,
-  home: false, accensione: false, salvaschermoLg: false, salvaschermoMin: 10, web: true,
+  home: false, accensione: false, salvaschermoLg: false, salvaschermoMin: 10, web: true, homeRimossa: false, aggiornamentiBloccati: true, alleggerisci: false,
+  // Sfondi (js/sfondi.js): fonti attive, minuti tra un cambio e l'altro, anche nel salvaschermo
+  sfondi: ['bing', 'nasa', 'dlna'], sfondoMin: 30, sfondoSalvaschermo: true,
   // Wake-on-LAN: dispositivo da accendere, ingresso che lo accende da solo ('' = nessuno), pulsante tra i comandi
   wolNome: '', wolMac: '', wolIngresso: '', wolIngressoNome: '', wolPulsante: true,
 };

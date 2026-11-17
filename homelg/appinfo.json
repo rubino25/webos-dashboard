@@ -1,6 +1,6 @@
 {
   "id": "it.casa.dashboard.homelg",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "vendor": "Dashboard webOS",
   "type": "web",
   "main": "index.html",

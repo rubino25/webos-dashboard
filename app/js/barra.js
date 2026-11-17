@@ -12,11 +12,11 @@ let recenti = [];      // id usati, dal più recente
 
 const APP_DEMO = [
   { id: 'com.webos.app.livetv', title: 'Live TV', bgColor: '#e5383b' },
-  { id: 'netflix', title: 'Netflix', bgColor: '#141414' },
-  { id: 'youtube.leanback.v4', title: 'YouTube', bgColor: '#ff0000' },
-  { id: 'amazon', title: 'Prime Video', bgColor: '#00a8e1' },
-  { id: 'com.disney.disneyplus-prod', title: 'Disney+', bgColor: '#113ccf' },
-  { id: 'spotify-beehive', title: 'Spotify', bgColor: '#1db954' },
+  { id: 'netflix', title: 'Netflix', bgColor: '#141414', removable: true },
+  { id: 'youtube.leanback.v4', title: 'YouTube', bgColor: '#ff0000', removable: true },
+  { id: 'amazon', title: 'Prime Video', bgColor: '#00a8e1', removable: true },
+  { id: 'com.disney.disneyplus-prod', title: 'Disney+', bgColor: '#113ccf', removable: true },
+  { id: 'spotify-beehive', title: 'Spotify', bgColor: '#1db954', removable: true },
   { id: 'org.webosbrew.hbchannel', title: 'Homebrew Channel', bgColor: '#3b3b98' },
   { id: 'com.webos.app.browser', title: 'Browser', bgColor: '#4263eb' },
   { id: 'com.webos.app.settings', title: 'Impostazioni TV', bgColor: '#495057' },
@@ -215,12 +215,27 @@ async function menuTile(tile) {
   const chiave = tile.dataset.punto;
   const p = puntiAvvio.find((x) => chiavePunto(x) === chiave);
   if (!p) return;
+  const disinstalla = disinstallabile(p) ? [{ etichetta: 'Disinstalla', valore: 'disinstalla' }] : [];
+  // Nella griglia "Tutte le app" / "App preferite" (OK tenuto premuto su un'app)
+  if (tile.closest('#preferite-griglia')) {
+    const v = await scegli(p.title || p.id, [
+      { etichetta: 'Apri', valore: 'apri' },
+      ...disinstalla,
+      { etichetta: 'Annulla', valore: null },
+    ]);
+    if (v === 'apri') { chiudiScegliPreferite(); avviaApp(p); }
+    if (v === 'disinstalla') await disinstallaApp(p);
+    return;
+  }
   const scelta = await scegli(p.title || p.id, [
     { etichetta: 'Sposta', valore: 'sposta' },
     { etichetta: 'Togli dai preferiti', valore: 'togli' },
+    ...disinstalla,
     { etichetta: 'Annulla', valore: null },
   ]);
-  if (scelta === 'sposta') {
+  if (scelta === 'disinstalla') {
+    await disinstallaApp(p);
+  } else if (scelta === 'sposta') {
     focalizza(tile);
     iniziaSpostamento(tile);
   } else if (scelta === 'togli') {
@@ -231,6 +246,49 @@ async function menuTile(tile) {
     disegnaApp((vicino && vicino.dataset.punto) || 'scegli');
     toast(`${p.title} tolta dai preferiti: la riaggiungi con "Scegli app"`);
   }
+}
+
+// ---------- Disinstallazione ----------
+
+// Servono alla dashboard o al root: si disinstallano dall'app stessa o da Homebrew Channel, non da qui
+const NON_DISINSTALLABILI = new Set([APP_ID, APP_ID + '.homelg', 'org.webosbrew.hbchannel', 'org.webosbrew.inputhook',
+  'com.tvweb.dashboard']);
+// Le app di sistema LG e gli ingressi hanno removable: false
+const disinstallabile = (p) => p.removable === true && !NON_DISINSTALLABILI.has(p.id) && (!p.launchPointId || p.launchPointId === p.id + '_default');
+
+async function disinstallaApp(p) {
+  const nome = p.title || p.id;
+  const ok = await scegli(`Disinstallare ${nome}?`, [
+    { etichetta: 'Annulla', valore: null },
+    { etichetta: `Sì, disinstalla ${nome}`, valore: true },
+  ]);
+  if (!ok) return false;
+  if (IS_WEBOS) {
+    toast(`Disinstallazione di ${nome}…`);
+    try {
+      // App dello store in /media/cryptofs, app homebrew in /media/developer (servizio "dev")
+      const sviluppo = (await sh(`[ -d /media/developer/apps/usr/palm/applications/${shQuote(p.id)} ] && echo dev`)).trim() === 'dev';
+      await lunaRoot(`luna://com.webos.appInstallService/${sviluppo ? 'dev/' : ''}remove`, { id: p.id, subscribe: false });
+      // La rimozione continua in background: si aspetta che il sistema non conosca più l'app (al massimo 40 s)
+      let tolta = false;
+      for (let i = 0; i < 40 && !tolta; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        tolta = await lunaRoot('luna://com.webos.applicationManager/getAppInfo', { id: p.id }).then(() => false, () => true);
+      }
+      if (!tolta) throw new Error('la TV non ha completato la rimozione');
+    } catch (e) {
+      toast(`Disinstallazione di ${nome} non riuscita: ${e.message}`);
+      return false;
+    }
+  }
+  impostazioni.preferite = (impostazioni.preferite || []).filter((k) => k !== chiavePunto(p));
+  salvaImpostazioni();
+  puntiAvvio = puntiAvvio.filter((x) => x !== p);
+  if (!$('#scegli-preferite').hidden) apriGrigliaApp(modoGriglia);
+  disegnaApp();
+  toast(`${nome} disinstallata`);
+  if (IS_WEBOS) caricaApp();
+  return true;
 }
 
 // ---------- Scelta delle app preferite ----------
@@ -272,11 +330,12 @@ function commutaPreferita(tile) {
 
 function aggiornaContoPreferite() {
   if (modoGriglia !== 'preferite') {
-    $('#griglia-nota').textContent = `OK apre l'app · ${puntiAvvio.length} app installate`;
+    $('#griglia-nota').textContent = `OK apre l'app · OK tenuto premuto per disinstallarla · ${puntiAvvio.length} app installate`;
     return;
   }
   const n = (impostazioni.preferite || []).length;
-  $('#griglia-nota').textContent = "OK aggiunge o toglie un'app dalla barra · " + (n === 1 ? '1 app scelta' : `${n} app scelte`);
+  $('#griglia-nota').textContent = "OK aggiunge o toglie un'app dalla barra · OK tenuto premuto per disinstallarla · " +
+    (n === 1 ? '1 app scelta' : `${n} app scelte`);
 }
 
 function chiudiScegliPreferite() {
