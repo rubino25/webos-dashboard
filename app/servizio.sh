@@ -86,11 +86,25 @@ rilascia_home_lg() {
 # nsu.lge.com e snu-dev.lge.com, e un indirizzo fisso: li aggiungiamo noi. Glasshouse, quando riscrive
 # /etc/hosts, tiene le righe messe da altri programmi; la sua configurazione non si tocca.
 # Anche la schermata "Aggiornamento software" (app di sistema nascosta) viene tolta con blockSystemApp,
-# come la Home LG; il sistema la rimette all'avvio e monitor_home la ritoglie.
+# come la Home LG; il sistema la rimette all'avvio e il servizio la ritoglie quando parte.
+# Il controllo della versione però non passa da quei server: con il tipo di server "sdp" (quello di
+# fabbrica) la TV chiede al server generale di LG (SDP, lo stesso dello store) e a ogni accensione
+# ritrovava il firmware nuovo e riproponeva l'avviso (21/11). Con il tipo "origin" il controllo va su
+# snu.lge.com, bloccato. La scelta resta in /mnt/lg/cmn_data/update/.nsuServerTypeOrigin.
 SEGNO_AGGIORNAMENTI=/var/luna/preferences/webosbrew_block_updates
 SERVER_AGGIORNAMENTI="snu.lge.com su.lge.com su-ssl.lge.com su-dev.lge.com nsu.lge.com snu-dev.lge.com"
 IP_AGGIORNAMENTI=156.147.69.32
 APP_AGGIORNAMENTO=com.webos.app.softwareupdate
+TIPO_SERVER_BLOCCATO=/mnt/lg/cmn_data/update/.nsuServerTypeOrigin
+
+tipo_server_aggiornamenti() {
+  luna-send -n 1 -w 5000 luna://com.webos.service.update/setServerType "{\"type\":\"$1\"}" >/dev/null 2>&1 </dev/null
+}
+
+# All'accensione (avvio a freddo) LG controlla la versione a ~24 s, PRIMA che Homebrew Channel parta (~33 s):
+# sulla TV niente può bloccare quel primo controllo (22/11). Il blocco vero va quindi fatto nel DNS della rete
+# (per esempio con AdGuard Home), che deve rispondere 0.0.0.0 per i server qui sotto.
+# Quello che fa questo servizio resta solo un rinforzo, applicato una volta all'avvio (niente controlli periodici).
 
 aggiornamenti_bloccati() { [ -f "$SEGNO_AGGIORNAMENTI" ]; }
 app_bloccata() { grep -qs "\"$1\"" "$BLOCCATE"/*.json; }
@@ -105,6 +119,7 @@ applica_blocco_aggiornamenti() {
     { echo "# Aggiornamenti LG bloccati (dashboard)"; for h in $mancanti; do printf '0.0.0.0\t%s\n::\t%s\n' "$h" "$h"; done; } >> /etc/hosts
   fi
   iptables -C OUTPUT -d "$IP_AGGIORNAMENTI" -j REJECT 2>/dev/null || iptables -I OUTPUT -d "$IP_AGGIORNAMENTI" -j REJECT 2>/dev/null
+  [ -f "$TIPO_SERVER_BLOCCATO" ] || tipo_server_aggiornamenti origin
   app_bloccata "$APP_AGGIORNAMENTO" || luna-send -n 1 -w 5000 luna://com.webos.applicationManager/blockSystemApp \
     "{\"id\":\"$APP_AGGIORNAMENTO\",\"forceBlockSystemApp\":false}" >/dev/null 2>&1 </dev/null
 }
@@ -138,12 +153,11 @@ chiudi_precaricate() {
   done
 }
 
-# Riapplica le scelte che il sistema può annullare (Home LG rimossa, server degli aggiornamenti,
-# app precaricate): nei primi 10 minuti ogni 15 s, poi ogni minuto (poche letture di file piccoli)
+# Riapplica le scelte che il sistema può annullare (Home LG rimossa, app precaricate):
+# nei primi 10 minuti ogni 15 s, poi ogni minuto (poche letture di file piccoli)
 monitor_home() {
   giri=0
   while :; do
-    applica_blocco_aggiornamenti
     chiudi_precaricate
     [ -f "$DA_RIMUOVERE" ] && ! home_lg_rimossa && blocca_home_lg
     giri=$((giri + 1))
@@ -310,8 +324,14 @@ gestisci_app_sistema() {
   fi
 }
 
+# Il lettore multimediale LG (DLNA, usato anche dall'app Film) e quello della musica si chiudono se un'altra
+# app passa davanti: un film in pausa andava perso quando partiva il nostro salvaschermo (22/11).
+# Con uno di loro in primo piano resta il salvaschermo LG, che non chiude niente.
+LETTORI="com.webos.app.mediadiscovery com.webos.app.totalmusic"
+
 apri_salvaschermo() {
   [ "$(secondi_da "$ULTIMO_SALVASCHERMO")" -lt 5 ] && return
+  contiene "$LETTORI" "$(cat "$PRIMO_PIANO" 2>/dev/null)" && return
   date +%s > "$ULTIMO_SALVASCHERMO"
   luna-send -n 1 -w 4000 luna://com.webos.service.tvpower/power/turnOnScreen '{}' >/dev/null 2>&1 </dev/null
   apri_dashboard '{"salvaschermo":true}'
@@ -413,9 +433,9 @@ installa_avvio() {
     printf '%s\n' "$atteso" > "$hook"
   fi
   [ -x "$hook" ] || chmod +x "$hook"
-  # Residui della versione 1.0
+  # Residui della versione 1.0 e della 1.9.4 (chiusura dell'avviso di aggiornamento, superata dal blocco nel DNS)
   if [ -f /tmp/dashboard-tracker.pid ]; then ferma /tmp/dashboard-tracker.pid; fi
-  rm -f /var/lib/webosbrew/init.d/dashboard-recenti
+  rm -f /var/lib/webosbrew/init.d/dashboard-recenti /var/lib/webosbrew/init.d/00-dashboard-avviso
 }
 
 case "$1" in
@@ -443,6 +463,7 @@ case "$1" in
     monitor_ciclo_app &
     monitor_canale &
     command -v python3 >/dev/null 2>&1 && monitor_configura &
+    applica_blocco_aggiornamenti &
     monitor_home &
     wait
     ;;
@@ -482,6 +503,9 @@ case "$1" in
         rm -f "$SEGNO_AGGIORNAMENTI"
         sync
         iptables -D OUTPUT -d "$IP_AGGIORNAMENTI" -j REJECT 2>/dev/null
+        # Torna il controllo di fabbrica (tipo "sdp", che in origine non aveva alcun file)
+        tipo_server_aggiornamenti sdp
+        rm -f /mnt/lg/cmn_data/update/.nsuServerTypeSDP
         luna-send -n 1 -w 5000 luna://com.webos.applicationManager/releaseBlockSystemApp \
           "{\"id\":\"$APP_AGGIORNAMENTO\"}" >/dev/null 2>&1 </dev/null
         echo "Aggiornamenti LG di nuovo possibili dal prossimo riavvio."
